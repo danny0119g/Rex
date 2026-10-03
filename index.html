@@ -40,8 +40,19 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
 .shop-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 16px; }
 .shop-top button { background: var(--btn); color: var(--fg); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 14px; }
 #charGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.card { border: 2px solid var(--btn); border-radius: 12px; padding: 8px 6px; text-align: center; }
-.card.sel { border-color: #f5b301; }
+.card { border: 2px solid var(--rc, var(--btn)); border-radius: 12px; padding: 8px 6px; text-align: center; }
+.card.sel { border-color: #f5b301 !important; }
+.card.r3 { box-shadow: 0 0 10px rgba(255,152,0,.35); }
+.card.r4 { animation: mythic 2s ease-in-out infinite; }
+@keyframes mythic { 0%,100% { box-shadow: 0 0 6px rgba(255,23,68,.35); } 50% { box-shadow: 0 0 18px rgba(255,23,68,.75); } }
+.sec { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; font-weight: bold; }
+.sec i { flex: 1; height: 2px; background: currentColor; opacity: .35; }
+.badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 999px; color: #fff; margin-left: 4px; vertical-align: middle; }
+.confirm { position: absolute; inset: 0; z-index: 11; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+.confirm .box { background: var(--bg); color: var(--fg); border-radius: 14px; padding: 18px; width: 100%; max-width: 320px; text-align: center; font-size: 14px; line-height: 1.7; }
+.confirm .row { display: flex; gap: 10px; margin-top: 14px; }
+.confirm button { flex: 1; padding: 12px; border: 0; border-radius: 10px; font: inherit; font-size: 14px; background: var(--btn); color: var(--fg); }
+.confirm button.go { background: #f5b301; color: #222; font-weight: bold; }
 .card canvas { width: 80px; height: 72px; }
 .card .nm { font-size: 13px; margin: 2px 0 0; }
 .card .pr { font-size: 11px; color: var(--muted); margin: 2px 0 6px; min-height: 14px; }
@@ -62,7 +73,8 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   <canvas id="c" width="700" height="260"></canvas>
   <div class="hint">탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기<br>
     선인장·구덩이는 딱 맞는 타이밍에 점프하면 🪙을 전부 먹어요<br>
-    점수 1000부터 하드모드(우주) · 🚀 = 시작부터 하드모드</div>
+    낮게 나는 새는 숙여서 · 높이 나는 새는 점프하면 부딪혀요<br>
+    🧲 자석 · 🪙x2 아이템 · 점수 1000부터 하드모드(우주) · 🚀 = 시작부터 하드모드</div>
   <div class="ver" id="ver"></div>
 </div>
 
@@ -71,11 +83,17 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     <div class="shop-top"><b>🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
     <div id="charGrid"></div>
   </div>
+  <div class="confirm" id="confirm" hidden>
+    <div class="box">
+      <div id="confirmMsg"></div>
+      <div class="row"><button id="cNo">취소</button><button class="go" id="cYes">구매</button></div>
+    </div>
+  </div>
 </div>
 
 <script>
 (() => {
-  const VERSION = '20261003-3';
+  const VERSION = '20261003-4';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -112,24 +130,28 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   const rgba = (h, a) => { const c = hex2rgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; };
 
   // ---------- 캐릭터 ----------
+  const RARITY = [
+    { name: '일반', color: '#9e9e9e' }, { name: '희귀', color: '#2196f3' }, { name: '영웅', color: '#9c27b0' },
+    { name: '전설', color: '#ff9800' }, { name: '신화', color: '#ff1744' },
+  ];
   const CHARS = [
-    { name: '공룡',       cost: 0,     color: null,      acc: 'none' },
-    { name: '초록이',     cost: 30,    color: '#43a047', acc: 'none' },
-    { name: '멋쟁이',     cost: 60,    color: '#1e88e5', acc: 'shades' },
-    { name: '리본공룡',   cost: 100,   color: '#ec407a', acc: 'bow' },
-    { name: '마법사',     cost: 180,   color: '#26a69a', acc: 'wizard' },
-    { name: '황금왕',     cost: 300,   color: '#e0a800', c2: '#ffd54f', acc: 'crown' },
-    { name: '노을',       cost: 500,   color: '#ff7043', c2: '#ab47bc', acc: 'none', spark: '#ffe0b2', trail: 'spark' },
-    { name: '사이버',     cost: 800,   color: '#3949ab', c2: '#00bcd4', acc: 'visor', glow: '#00e5ff', trail: 'spark', spark: '#80deea', eye: '#00e5ff' },
-    { name: '불꽃',       cost: 1200,  color: '#ffca28', c2: '#d84315', acc: 'flame', trail: 'flame', glow: '#ff9100', eye: '#3e2723' },
-    { name: '우주인',     cost: 1800,  color: '#cfd8dc', c2: '#78909c', acc: 'helmet', trail: 'spark', spark: '#ffffff', eye: '#263238' },
-    { name: '무지개',     cost: 2800,  fx: 'rainbow', acc: 'crown', trail: 'spark', spark: '#ffffff', glow: '#ffffff', eye: '#ffffff' },
-    { name: '다이아',     cost: 4000,  color: '#b2ebf2', c2: '#00acc1', acc: 'diamond', glow: '#80deea', trail: 'spark', spark: '#ffffff', eye: '#006064' },
-    { name: '용왕',       cost: 6000,  color: '#8e24aa', c2: '#ffb300', acc: 'horns', wings: true, glow: '#ffab00', trail: 'flame', spark: '#ffe082', eye: '#fff59d' },
-    { name: '디바',       cost: 7500,  color: '#ff4081', c2: '#aa00ff', acc: 'none', face: 'diva', legs: '#d50000', shine: true, glow: '#ff80ab', trail: 'spark', spark: '#ffd1e8', eye: '#311b92' },
-    { name: '시크블랙',   cost: 10000, color: '#37474f', c2: '#90a4ae', acc: 'shades', scarf: '#e53935', shine: true, glow: '#ff1744', trail: 'spark', spark: '#ff8a80', eye: '#ffffff' },
-    { name: '뱀파이어',   cost: 14000, color: '#ad1457', c2: '#4a148c', acc: 'none', face: 'fangs', cape: '#b71c1c', shine: true, glow: '#d500f9', trail: 'spark', spark: '#ff80ab', eye: '#ffeb3b' },
-    { name: '오로라여왕', cost: 20000, fx: 'aurora', acc: 'tiara', face: 'diva', shine: true, glow: '#b388ff', trail: 'spark', spark: '#ffffff', eye: '#4a148c' },
+    { name: '공룡',       rar: 0, cost: 0,     color: null,      acc: 'none' },
+    { name: '초록이',     rar: 0, cost: 25,    color: '#43a047', acc: 'none' },
+    { name: '멋쟁이',     rar: 0, cost: 50,    color: '#1e88e5', acc: 'shades' },
+    { name: '리본공룡',   rar: 1, cost: 85,    color: '#ec407a', acc: 'bow' },
+    { name: '마법사',     rar: 1, cost: 150,   color: '#26a69a', acc: 'wizard' },
+    { name: '황금왕',     rar: 1, cost: 250,   color: '#e0a800', c2: '#ffd54f', acc: 'crown' },
+    { name: '노을',       rar: 2, cost: 430,   color: '#ff7043', c2: '#ab47bc', acc: 'none', spark: '#ffe0b2', trail: 'spark' },
+    { name: '사이버',     rar: 2, cost: 680,   color: '#3949ab', c2: '#00bcd4', acc: 'visor', glow: '#00e5ff', trail: 'spark', spark: '#80deea', eye: '#00e5ff' },
+    { name: '불꽃',       rar: 2, cost: 1000,  color: '#ffca28', c2: '#d84315', acc: 'flame', trail: 'flame', glow: '#ff9100', eye: '#3e2723' },
+    { name: '우주인',     rar: 3, cost: 1500,  color: '#cfd8dc', c2: '#78909c', acc: 'helmet', trail: 'spark', spark: '#ffffff', eye: '#263238' },
+    { name: '무지개',     rar: 3, cost: 2400,  fx: 'rainbow', acc: 'crown', trail: 'spark', spark: '#ffffff', glow: '#ffffff', eye: '#ffffff' },
+    { name: '다이아',     rar: 3, cost: 3400,  color: '#b2ebf2', c2: '#00acc1', acc: 'diamond', glow: '#80deea', trail: 'spark', spark: '#ffffff', eye: '#006064' },
+    { name: '용왕',       rar: 3, cost: 5100,  color: '#8e24aa', c2: '#ffb300', acc: 'horns', wings: true, glow: '#ffab00', trail: 'flame', spark: '#ffe082', eye: '#fff59d' },
+    { name: '디바',       rar: 4, cost: 6400,  color: '#ff4081', c2: '#aa00ff', acc: 'none', face: 'diva', legs: '#d50000', shine: true, glow: '#ff80ab', trail: 'spark', spark: '#ffd1e8', eye: '#311b92' },
+    { name: '시크블랙',   rar: 4, cost: 8500,  color: '#37474f', c2: '#90a4ae', acc: 'shades', scarf: '#e53935', shine: true, glow: '#ff1744', trail: 'spark', spark: '#ff8a80', eye: '#ffffff' },
+    { name: '뱀파이어',   rar: 4, cost: 12000, color: '#ad1457', c2: '#4a148c', acc: 'none', face: 'fangs', cape: '#b71c1c', shine: true, glow: '#d500f9', trail: 'spark', spark: '#ff80ab', eye: '#ffeb3b' },
+    { name: '오로라여왕', rar: 4, cost: 17000, fx: 'aurora', acc: 'tiara', face: 'diva', shine: true, glow: '#b388ff', trail: 'spark', spark: '#ffffff', eye: '#4a148c' },
   ];
   if (!CHARS[save.sel] || !isOwned(save.sel)) save.sel = 0;
 
@@ -323,10 +345,12 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   const SIM2 = simJump(12), AP2 = apexOf(SIM2), P2 = SIM2[AP2];
 
   // ---------- 게임 상태 ----------
-  const GAP = { cactus: 46, cactusT: 95, birdH: 50, pit: 60 };
+  const GAP = { cactus: 46, cactusT: 95, birdM: 55, birdH: 50, pit: 60 };
   let gscroll = 0, dtS = 16.667, dino, obstacles, coins, clouds, speed, score, frame, spawnIn, nextKind, runGold;
   let last = 0, running = false, over = false, duckHeld = false, overAt = 0, shopOpen = false, pendingReload = null, previews = [];
   let hardOn = false, spaceT = 0, bannerT = 0;
+  let items = [], magnetT = 0, x2T = 0, itemIn = 500, toast = { t: 0, s: '' };
+  const ITEM_T = 600;   // 아이템 지속 시간(프레임) ≈ 10초
   const STARS = [];
   for (let i = 0; i < 90; i++) STARS.push({ x: Math.random() * W, y: Math.random() * (GROUND - 12), z: 1 + Math.floor(Math.random() * 3), ph: Math.random() * 60 });
 
@@ -337,6 +361,7 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     speed = Math.min(14, 5.5 + score / 250);
     frame = 0; gscroll = 0; spawnIn = 60; nextKind = null; runGold = 0; duckHeld = false; over = false;
     hardOn = score >= HARD_AT; bannerT = hardOn ? 150 : 0;
+    items = []; magnetT = 0; x2T = 0; itemIn = 500; toast.t = 0;
   }
   reset();
 
@@ -409,18 +434,28 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   // ---------- 상점 ----------
   const shop = document.getElementById('shop');
   const grid = document.getElementById('charGrid');
+  const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  function cardHTML(c, i) {
+    const R = RARITY[c.rar], owned = isOwned(i), sel = save.sel === i;
+    let label, dis = false;
+    if (sel) { label = '사용 중'; dis = true; }
+    else if (owned) label = '선택';
+    else { label = '🪙 ' + fmt(c.cost); dis = save.gold < c.cost; }
+    return '<div class="card r' + c.rar + (sel ? ' sel' : '') + '" style="--rc:' + R.color + '"><canvas width="80" height="72" data-i="' + i + '"></canvas>' +
+      '<div class="nm">' + c.name + '<span class="badge" style="background:' + R.color + '">' + R.name + '</span></div>' +
+      '<div class="pr">' + (c.cost ? '🪙 ' + fmt(c.cost) : '무료') + '</div>' +
+      '<button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
+  }
   function renderShop() {
-    document.getElementById('goldTotal').textContent = save.gold;
-    grid.innerHTML = CHARS.map((c, i) => {
-      const owned = isOwned(i), sel = save.sel === i;
-      let label, dis = false;
-      if (sel) { label = '사용 중'; dis = true; }
-      else if (owned) label = '선택';
-      else { label = '🪙 ' + c.cost; dis = save.gold < c.cost; }
-      return '<div class="card' + (sel ? ' sel' : '') + '"><canvas width="80" height="72" data-i="' + i + '"></canvas>' +
-        '<div class="nm">' + c.name + '</div><div class="pr">' + (c.cost ? '🪙 ' + c.cost : '무료') + '</div>' +
-        '<button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
-    }).join('');
+    document.getElementById('goldTotal').textContent = fmt(save.gold);
+    let html = '';
+    RARITY.forEach((R, ri) => {
+      const list = CHARS.map((c, i) => [c, i]).filter(p => p[0].rar === ri);
+      if (!list.length) return;
+      html += '<div class="sec" style="color:' + R.color + '"><span>' + R.name + '</span><i></i></div>';
+      list.forEach(p => { html += cardHTML(p[0], p[1]); });
+    });
+    grid.innerHTML = html;
     previews = Array.prototype.map.call(grid.querySelectorAll('canvas'), cn => ({ c: cn.getContext('2d'), i: +cn.dataset.i }));
   }
   function drawPreviews(tt) {
@@ -431,19 +466,33 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       p.c.globalAlpha = 1;
     });
   }
-  function openShop() { shopOpen = true; running = false; duckHeld = false; touching = false; shop.hidden = false; renderShop(); }
-  function closeShop() { shopOpen = false; shop.hidden = true; previews = []; tryReload(); }
+  const confirmBox = document.getElementById('confirm');
+  let pendingBuy = -1;
+  function askBuy(i) {
+    const c = CHARS[i], R = RARITY[c.rar];
+    pendingBuy = i;
+    document.getElementById('confirmMsg').innerHTML = '<b>' + c.name + '</b> <span style="color:' + R.color + '">[' + R.name + ']</span><br>🪙 ' + fmt(c.cost) +
+      ' 에 구매할까요?<br><small>구매 후 잔액 🪙 ' + fmt(save.gold - c.cost) + '</small>';
+    confirmBox.hidden = false;
+  }
+  function closeConfirm() { confirmBox.hidden = true; pendingBuy = -1; }
+  document.getElementById('cNo').addEventListener('click', closeConfirm);
+  confirmBox.addEventListener('click', e => { if (e.target === confirmBox) closeConfirm(); });
+  document.getElementById('cYes').addEventListener('click', () => {
+    const i = pendingBuy; closeConfirm();
+    if (i < 0 || isOwned(i) || save.gold < CHARS[i].cost) return;
+    save.gold -= CHARS[i].cost; save.owned.push(i); save.sel = i; persist(); renderShop();
+  });
+  function openShop() { shopOpen = true; running = false; duckHeld = false; touching = false; shop.hidden = false; closeConfirm(); renderShop(); }
+  function closeShop() { shopOpen = false; shop.hidden = true; previews = []; closeConfirm(); tryReload(); }
   document.getElementById('shopBtn').addEventListener('click', openShop);
   document.getElementById('shopClose').addEventListener('click', closeShop);
   shop.addEventListener('click', e => { if (e.target === shop) closeShop(); });
   grid.addEventListener('click', e => {
     const b = e.target.closest('button[data-i]'); if (!b || b.disabled) return;
     const i = +b.dataset.i;
-    if (!isOwned(i)) {   // 골드로 구매
-      if (save.gold < CHARS[i].cost) return;
-      save.gold -= CHARS[i].cost; save.owned.push(i);
-    }
-    save.sel = i; persist(); renderShop();
+    if (isOwned(i)) { save.sel = i; persist(); renderShop(); }
+    else askBuy(i);   // 사기 전에 확인
   });
 
   // ---------- 난이도 / 장애물 ----------
@@ -462,8 +511,8 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     let list = [['cactus', 6]];
     if (score > 100) list.push(['pit', 2.5]);
     if (score > 200) list.push(['cactusT', 2]);
-    if (score > 250) list.push(['birdH', 2.2]);
-    if (prev === 'cactusT') list = list.filter(a => a[0] !== 'birdH');   // 2단 점프 직후 숙여야 하는 새는 불가능 → 금지
+    if (score > 250) { list.push(['birdM', 2]); list.push(['birdH', 1.8]); }
+    if (prev === 'cactusT') list = list.filter(a => a[0] !== 'birdM' && a[0] !== 'birdH');   // 2단 점프 직후엔 새 금지
     const tot = list.reduce((s, a) => s + a[1], 0);
     let r = Math.random() * tot;
     for (const a of list) { r -= a[1]; if (r <= 0) return a[0]; }
@@ -480,7 +529,10 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       else h = clamp(Math.round(P2 + 4 - 0.3 * Math.pow(tol * (1.3 + Math.random() * 0.9) + z, 2)), 106, 132);
       return { kind, type: 'cactus', x, y: GROUND - h, w, h, n };
     }
-    if (kind === 'birdH') return { kind, type: 'bird', x, y: GROUND - 180, w: 36, h: 24 };
+    if (kind === 'birdM' || kind === 'birdH') {   // 낮게(머리 높이) / 높이 나는 새: 날개 포함 36px 높이 구간
+      const b0 = kind === 'birdH' ? 104 : 28;
+      return { kind, type: 'bird', x, y: GROUND - b0 - 36, w: 32, h: 36 };
+    }
     const sa = arrivalSpeed(x + 60), tol = baseTol(progressOf(sa)) * (1 + Math.random());
     const w = clamp(Math.round(20 + sa * (SIM1.length - 2 * tol)), 70, 460);
     return { kind: 'pit', type: 'pit', x, y: GROUND, w, h: 0 };
@@ -493,13 +545,11 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     const xc = o.x + o.w / 2, sa = arrivalSpeed(xc);
     if (o.kind === 'cactus' || o.kind === 'pit') pathCoins(xc, sa, SIM1, AP1, [4, 8, 12, AP1, 22, 26, 30]);
     else if (o.kind === 'cactusT') pathCoins(xc, sa, SIM2, AP2, [4, 9, 14, 19, AP2, 31, 36, 41]);
-    else if (o.kind === 'birdH') for (let i = 0; i < 4; i++) addCoin(o.x - 6 + i * 16, GROUND - 14);
+    else if (o.kind === 'birdM') for (let i = 0; i < 4; i++) addCoin(o.x - 8 + i * 16, GROUND - 14);   // 숙이고 지나가며 획득
+    else if (o.kind === 'birdH') for (let i = 0; i < 4; i++) addCoin(o.x - 8 + i * 16, GROUND - 20);
   }
   function obsBoxes(o) {
-    if (o.kind === 'birdH') return [
-      { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: 18 },
-      { x: o.x + 10, y: o.y + 16, w: 16, h: (GROUND - 28) - (o.y + 16) },
-    ];
+    if (o.type === 'bird') return [{ x: o.x + 1, y: o.y + 4, w: 30, h: 32 }];
     return [{ x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 }];
   }
   const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -542,10 +592,17 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       let gap = GAP[kind] + (kind === 'pit' ? o.w / speed : 0) + (nextKind === 'cactusT' ? 10 : 0) + 8 + Math.random() * 28;
       gap *= 1.1 - 0.15 * progressOf(speed);
       spawnIn = gap;
-      if (gap > 100) { const cx = W + 30 + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
+      let placed = false;
+      if (itemIn <= 0 && gap >= 70) {   // 장애물 사이 빈 구간 한가운데에 아이템
+        items.push({ type: Math.random() < 0.5 ? 'magnet' : 'x2', x: W + 30 + gap * speed * 0.5, y: GROUND - 26, ph: Math.random() * 40 });
+        itemIn = rnd(900, 1500); placed = true;
+      }
+      if (!placed && gap > 100) { const cx = W + 30 + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
     }
     obstacles.forEach(o => o.x -= speed * k);
     coins.forEach(c => c.x -= speed * k);
+    items.forEach(it => it.x -= speed * k);
+    itemIn -= k;
     obstacles = obstacles.filter(o => o.x + o.w > -10);
     clouds.forEach(c => { c.x -= speed * 0.2 * k; if (c.x < -50) { c.x = W + 20; c.y = 25 + Math.random() * 60; } });
 
@@ -557,13 +614,34 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       if (obsBoxes(o).some(b => hit(box, b))) { die(false); return; }
     }
     const cb = dino.ducking ? { x: dino.x, y: GROUND - 24, w: 52, h: 24 } : { x: dino.x + 6, y: dino.y + 2, w: 30, h: 38 };
+    // 자석: 가까운 코인을 끌어당김
+    if (magnetT > 0) {
+      const px = dino.x + 21, py = dino.ducking ? GROUND - 12 : dino.y + 21;
+      coins.forEach(c => {
+        const dx = px - c.x, dy = py - c.y, d = Math.hypot(dx, dy);
+        if (d < 170 && d > 1) { const pull = Math.min(d, 8 + speed * 1.1 + (170 - d) * 0.06); c.x += dx / d * pull * k; c.y += dy / d * pull * k; }
+      });
+    }
+    // 아이템 획득
+    items = items.filter(it => {
+      if (it.x < -30) return false;
+      const iy = it.y + Math.sin((frame + it.ph) / 10) * 3;
+      if (it.x > cb.x - 14 && it.x < cb.x + cb.w + 14 && iy > cb.y - 14 && iy < cb.y + cb.h + 14) {
+        if (it.type === 'magnet') { magnetT = ITEM_T; toast.s = '자석!'; } else { x2T = ITEM_T; toast.s = '골드 x2!'; }
+        toast.t = 90; return false;
+      }
+      return true;
+    });
+    if (magnetT > 0) magnetT -= k;
+    if (x2T > 0) x2T -= k;
+    if (toast.t > 0) toast.t -= k;
     let got = 0;
     coins = coins.filter(c => {
       if (c.x < -20) return false;
       if (c.x > cb.x - 9 && c.x < cb.x + cb.w + 9 && c.y > cb.y - 9 && c.y < cb.y + cb.h + 9) { got++; return false; }
       return true;
     });
-    if (got) { save.gold += got; runGold += got; persist(); }
+    if (got) { const g = got * (x2T > 0 ? 2 : 1); save.gold += g; runGold += g; persist(); }
   }
 
   // ---------- 그리기: 사막 장애물 ----------
@@ -578,17 +656,15 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       ctx.fillRect(x + 12, y + Math.round(h * 0.3), 3, Math.round(h * 0.25));
     }
   }
-  function drawBird(o) {   // 아주 높이 나는 새: 몸통은 하늘 위, 발톱이 머리 높이까지 늘어짐
+  function drawBird(o) {   // 익룡 스타일 새 (36x36 영역, 날개가 위아래로 펄럭임)
     ctx.fillStyle = FG;
-    ctx.fillRect(o.x + 6, o.y + 9, 22, 7);
-    ctx.fillRect(o.x, o.y + 11, 8, 3);
-    ctx.fillRect(o.x + 26, o.y + 11, 8, 3);
-    if (Math.floor(frame / 8) % 2) { ctx.fillRect(o.x + 12, o.y, 6, 10); ctx.fillRect(o.x + 16, o.y - 2, 6, 4); }
-    else { ctx.fillRect(o.x + 12, o.y + 16, 6, 8); ctx.fillRect(o.x + 16, o.y + 20, 6, 4); }
-    const bottom = GROUND - 28, top = o.y + 16;
-    ctx.fillRect(o.x + 12, top, 3, bottom - top - 3);
-    ctx.fillRect(o.x + 21, top, 3, bottom - top - 3);
-    ctx.fillRect(o.x + 9, bottom - 4, 7, 4); ctx.fillRect(o.x + 18, bottom - 4, 7, 4);
+    ctx.fillRect(o.x + 8, o.y + 16, 20, 8);                // 몸통
+    ctx.fillRect(o.x + 2, o.y + 13, 9, 9);                 // 머리
+    ctx.fillRect(o.x - 4, o.y + 17, 7, 3);                 // 부리
+    ctx.fillRect(o.x + 28, o.y + 18, 6, 3); ctx.fillRect(o.x + 31, o.y + 16, 4, 7);   // 꼬리
+    if (Math.floor(frame / 7) % 2) { ctx.fillRect(o.x + 12, o.y + 5, 6, 11); ctx.fillRect(o.x + 16, o.y + 1, 9, 9); }
+    else { ctx.fillRect(o.x + 12, o.y + 24, 6, 10); ctx.fillRect(o.x + 16, o.y + 27, 9, 8); }
+    ctx.fillStyle = BG; ctx.fillRect(o.x + 4, o.y + 15, 2, 2);   // 눈
   }
   // ---------- 그리기: 우주 장애물 ----------
   function drawCrystal(o) {   // 선인장 → 에너지 크리스탈 (타워는 깜빡이는 비콘)
@@ -604,18 +680,14 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       if (o.kind === 'cactusT') { ctx.fillStyle = Math.floor(frame / 15) % 2 ? '#ff5252' : '#7f0000'; ctx.fillRect(x + 5, y + 2, 4, 4); }
     }
   }
-  function drawUFO(o) {   // 새 → UFO + 집게 (발톱 자리)
-    const cx = o.x + 18, cy = o.y + 14;
-    ctx.fillStyle = '#b0bec5'; ctx.beginPath(); ctx.ellipse(cx, cy, 18, 6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(129,212,250,0.9)'; ctx.beginPath(); ctx.ellipse(cx, cy - 3, 9, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#78909c'; ctx.fillRect(cx - 18, cy + 2, 36, 2);
-    for (let i = 0; i < 4; i++) { ctx.fillStyle = (Math.floor(frame / 8) + i) % 2 ? '#ffeb3b' : '#ff7043'; ctx.fillRect(cx - 12 + i * 8, cy - 1, 3, 3); }
-    const bottom = GROUND - 28, top = o.y + 16;
-    ctx.fillStyle = '#90a4ae';
-    ctx.fillRect(o.x + 12, top, 3, bottom - top - 3);
-    ctx.fillRect(o.x + 21, top, 3, bottom - top - 3);
-    ctx.fillStyle = '#ff5252'; ctx.fillRect(o.x + 9, bottom - 4, 7, 4); ctx.fillRect(o.x + 18, bottom - 4, 7, 4);
-    ctx.fillStyle = 'rgba(129,212,250,0.10)'; ctx.fillRect(o.x + 9, top, 18, bottom - top);
+  function drawUFO(o) {   // 새 → UFO (36x36 영역)
+    const cx = o.x + 16, f = Math.floor(frame / 6) % 2;
+    ctx.fillStyle = 'rgba(129,212,250,0.9)'; ctx.beginPath(); ctx.ellipse(cx, o.y + 18, 10, 13, 0, Math.PI, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b0bec5'; ctx.beginPath(); ctx.ellipse(cx, o.y + 20, 18, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#78909c'; ctx.fillRect(cx - 18, o.y + 21, 36, 2);
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = (Math.floor(frame / 8) + i) % 2 ? '#ffeb3b' : '#ff7043'; ctx.fillRect(cx - 12 + i * 8, o.y + 19, 3, 3); }
+    ctx.fillStyle = '#ffb300'; ctx.fillRect(cx - 7, o.y + 26, 4, 5 + f * 3); ctx.fillRect(cx + 3, o.y + 26, 4, 8 - f * 3);   // 분사 불꽃
+    ctx.fillStyle = '#ff7043'; ctx.fillRect(cx - 6, o.y + 26, 2, 3 + f * 2); ctx.fillRect(cx + 4, o.y + 26, 2, 5 - f * 2);
   }
   function drawVoid(px, w) {   // 구덩이 → 우주 균열
     ctx.fillStyle = '#03030c'; ctx.fillRect(px, GROUND, w, H - GROUND);
@@ -626,6 +698,26 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#80deea'; ctx.fillRect(px, GROUND, 2, H - GROUND); ctx.fillRect(px + w - 2, GROUND, 2, H - GROUND);
     ctx.globalAlpha = 0.25; ctx.fillStyle = '#b388ff'; ctx.fillRect(px + 2, GROUND, 6, H - GROUND); ctx.fillRect(px + w - 8, GROUND, 6, H - GROUND); ctx.globalAlpha = 1;
+  }
+  function drawItem(it) {
+    const cx = Math.round(it.x), cy = Math.round(it.y + Math.sin((frame + it.ph) / 10) * 3), mg = it.type === 'magnet';
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 24);
+    g.addColorStop(0, mg ? 'rgba(255,82,82,0.5)' : 'rgba(255,193,7,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(cx - 24, cy - 24, 48, 48);
+    if (mg) {
+      ctx.strokeStyle = '#e53935'; ctx.lineWidth = 6; ctx.beginPath();
+      ctx.moveTo(cx - 9, cy + 7); ctx.lineTo(cx - 9, cy + 1); ctx.arc(cx, cy + 1, 9, Math.PI, 0, false); ctx.lineTo(cx + 9, cy + 7); ctx.stroke();
+      ctx.fillStyle = '#eceff1'; ctx.fillRect(cx - 12, cy + 5, 6, 6); ctx.fillRect(cx + 6, cy + 5, 6, 6);
+    } else {
+      ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.arc(cx, cy, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#6d4c00'; ctx.font = 'bold 11px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('x2', cx, cy + 4);
+    }
+  }
+  function hudBar(y, label, frac, col) {
+    ctx.fillStyle = 'rgba(128,128,128,0.35)'; ctx.fillRect(10, y, 80, 8);
+    ctx.fillStyle = col; ctx.fillRect(10, y, 80 * Math.max(0, Math.min(1, frac)), 8);
+    ctx.fillStyle = FG; ctx.font = 'bold 10px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(label, 96, y + 8);
   }
   function drawCoin(c) {
     const cx = Math.round(c.x), cy = Math.round(c.y);
@@ -695,12 +787,17 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       ctx.globalAlpha = 0.12; ctx.fillRect(px + 2, GROUND + 2, o.w - 4, H - GROUND); ctx.globalAlpha = 1;
     });
     coins.forEach(drawCoin);
+    items.forEach(drawItem);
     obstacles.forEach(o => {
       if (o.type === 'pit') return;
       const r = Object.assign({}, o, { x: Math.round(o.x) });
       if (o.type === 'bird') { if (o.sp) drawUFO(r); else drawBird(r); }
       else { if (o.sp) drawCrystal(r); else drawCactus(r); }
     });
+    if (magnetT > 0) {
+      ctx.strokeStyle = 'rgba(255,82,82,0.22)'; ctx.lineWidth = 2; ctx.setLineDash([5, 8]); ctx.lineDashOffset = -frame * 0.6;
+      ctx.beginPath(); ctx.arc(dino.x + 21, dino.ducking ? GROUND - 12 : dino.y + 21, 170, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    }
     // 캐릭터 (우주에서는 헬멧)
     const leg = (dino.onGround && running) ? (Math.floor(frame / 5) % 2) : 0;
     const t = frame + (running ? 0 : performance.now() / 16.667), helmet = spaceT > 0.35;
@@ -712,6 +809,8 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
     ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'left';
     ctx.fillText(String(save.gold), 34, 24);
     if (hardOn) { ctx.fillStyle = '#ff5252'; ctx.fillText('HARD', 100, 24); ctx.fillStyle = FG; }
+    if (magnetT > 0) hudBar(38, '자석', magnetT / ITEM_T, '#e53935');
+    if (x2T > 0) hudBar(magnetT > 0 ? 52 : 38, '골드 x2', x2T / ITEM_T, '#f5b301');
     ctx.textAlign = 'right';
     const pad = n => String(n).padStart(5, '0');
     ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), W - 120, 24); ctx.globalAlpha = 1;
@@ -723,6 +822,7 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       ctx.fillStyle = FG; ctx.font = '14px "Courier New", monospace'; ctx.fillText('우주 구간 돌입', W / 2, 88);
       ctx.globalAlpha = 1; ctx.fillStyle = FG;
     }
+    if (toast.t > 0) { ctx.globalAlpha = Math.min(1, toast.t / 30); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 18px "Courier New", monospace'; ctx.fillText(toast.s, W / 2, 50); ctx.globalAlpha = 1; ctx.fillStyle = FG; }
     ctx.font = 'bold 16px "Courier New", monospace';
     if (!running && !over) ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, 130);
     if (over) {
