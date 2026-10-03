@@ -21,43 +21,97 @@ body {
   background: var(--bg); color: var(--fg);
   font-family: "Courier New", ui-monospace, monospace;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
+  user-select: none; -webkit-user-select: none;
 }
+[hidden] { display: none !important; }
 .wrap { width: 100%; max-width: 760px; padding: 12px; box-sizing: border-box; }
-h1 { font-size: 16px; margin: 0 0 8px; letter-spacing: 1px; color: var(--muted); font-weight: normal; }
-canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; }
-.hint { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
-.duck {
-  margin: 14px auto 0; display: block; width: 100%; max-width: 320px; padding: 18px;
-  background: var(--btn); color: var(--fg); border: 0; border-radius: 12px;
-  font: inherit; font-size: 16px; touch-action: none;
-}
+h1 { font-size: 16px; margin: 0; letter-spacing: 1px; color: var(--muted); font-weight: normal; }
+canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated; }
 .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.top h1 { margin: 0; }
-#theme { background: var(--btn); color: var(--fg); border: 0; border-radius: 10px; width: 44px; height: 36px; font-size: 18px; touch-action: none; }
+.btns { display: flex; gap: 8px; }
+.ibtn { background: var(--btn); color: var(--fg); border: 0; border-radius: 10px; width: 44px; height: 36px; font-size: 18px; touch-action: none; }
+.hint { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
+.ver { margin-top: 6px; font-size: 10px; color: var(--muted); text-align: center; opacity: .6; }
+#shop { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+.panel { background: var(--bg); color: var(--fg); border-radius: 16px; width: 100%; max-width: 440px; max-height: 100%;
+  overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; padding: 14px; box-sizing: border-box; }
+.shop-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 16px; }
+.shop-top button { background: var(--btn); color: var(--fg); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 14px; }
+#charGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card { border: 2px solid var(--btn); border-radius: 12px; padding: 8px; text-align: center; }
+.card.sel { border-color: #f5b301; }
+.card canvas { width: 64px; height: 64px; image-rendering: pixelated; }
+.card .nm { font-size: 13px; margin: 4px 0 6px; }
+.card button { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: var(--btn); color: var(--fg); font: inherit; font-size: 13px; }
+.card button:disabled { opacity: .45; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><h1>DINO RUN</h1><button id="theme" aria-label="다크 모드 전환">🌙</button></div>
-  <canvas id="c" width="700" height="200"></canvas>
-  <div class="hint">화면 탭 = 점프 · 아래로 스와이프 = 숙이기 · 높은 새는 숙여서 피하기<br>키보드: Space/↑ 점프, ↓ 숙이기</div>
+  <div class="top">
+    <h1>DINO RUN</h1>
+    <div class="btns">
+      <button class="ibtn" id="shopBtn" aria-label="캐릭터 상점">🛒</button>
+      <button class="ibtn" id="theme" aria-label="다크 모드 전환">🌙</button>
+    </div>
+  </div>
+  <canvas id="c" width="700" height="260"></canvas>
+  <div class="hint">탭 = 점프 (공중에서 한 번 더 탭 = 2단 점프) · 아래로 스와이프 = 숙이기<br>
+    높은 새는 숙여서 · 구덩이와 높은 선인장은 점프(2단)로 · 🪙 모아서 캐릭터 구매<br>
+    키보드: Space/↑ 점프, ↓ 숙이기</div>
+  <div class="ver" id="ver"></div>
 </div>
+
+<div id="shop" hidden>
+  <div class="panel">
+    <div class="shop-top"><b>🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
+    <div id="charGrid"></div>
+  </div>
+</div>
+
 <script>
 (() => {
+  const VERSION = '20261003-1';
+  document.getElementById('ver').textContent = 'v' + VERSION;
+
   const root = document.documentElement;
   try { const t = localStorage.getItem('dino-theme'); if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t); } catch (e) {}
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height, GROUND = 168;
+  const W = 700, H = 260, GROUND = 228;
 
-  const css = () => getComputedStyle(document.documentElement);
   let FG = '#535353', BG = '#f7f7f7';
-  const readColors = () => { FG = css().getPropertyValue('--fg').trim(); BG = css().getPropertyValue('--bg').trim(); };
+  const readColors = () => {
+    const cs = getComputedStyle(root);
+    FG = cs.getPropertyValue('--fg').trim() || FG;
+    BG = cs.getPropertyValue('--bg').trim() || BG;
+  };
   readColors();
-  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', readColors);
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors); } catch (e) {}
 
-  // 도트 공룡
+  // ---------- 저장 ----------
+  let save = { gold: 0, owned: [0], sel: 0, hi: 0 };
+  try {
+    const s = JSON.parse(localStorage.getItem('dino-save') || 'null');
+    if (s && typeof s === 'object') save = Object.assign(save, s);
+    const old = parseInt(localStorage.getItem('dino-hi') || '0', 10);
+    if (old > save.hi) save.hi = old;
+  } catch (e) {}
+  if (!Array.isArray(save.owned) || !save.owned.includes(0)) save.owned = [0].concat(save.owned || []);
+  const persist = () => { try { localStorage.setItem('dino-save', JSON.stringify(save)); } catch (e) {} };
+
+  // ---------- 캐릭터 ----------
+  const CHARS = [
+    { name: '공룡',     cost: 0,   color: null,      acc: 'none' },
+    { name: '초록이',   cost: 30,  color: '#43a047', acc: 'none' },
+    { name: '멋쟁이',   cost: 60,  color: '#1e88e5', acc: 'shades' },
+    { name: '리본공룡', cost: 100, color: '#ec407a', acc: 'bow' },
+    { name: '마법사',   cost: 180, color: '#26a69a', acc: 'wizard' },
+    { name: '황금왕',   cost: 300, color: '#e0a800', acc: 'crown' },
+  ];
+  if (!CHARS[save.sel] || !save.owned.includes(save.sel)) save.sel = 0;
+
   const BODY = [
     "............########",
     "............########",
@@ -80,41 +134,67 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
     ["....####.####......","....###..#.........","....##...###.......","....###............"],
     ["....####.####......","....#....###.......","....###..##........","...........###....."],
   ];
-  const S = 2; // 픽셀 배율
-  function drawRows(rows, x, y) {
-    x = Math.round(x); y = Math.round(y);
+  const S = 2;
+  function drawRows(c, rows, x, y) {
     for (let r = 0; r < rows.length; r++) {
       const row = rows[r].padEnd(20, '.');
-      for (let col = 0; col < row.length; col++) {
-        if (row[col] === '#') ctx.fillRect(x + col * S, y + r * S, S, S);
-      }
+      for (let col = 0; col < row.length; col++) if (row[col] === '#') c.fillRect(x + col * S, y + r * S, S, S);
     }
   }
+  function accessory(c, k, hx, hy) {
+    if (k === 'shades') { c.fillStyle = '#111'; c.fillRect(hx + 3, hy + 3, 16, 4); c.fillRect(hx + 1, hy + 4, 3, 2); }
+    else if (k === 'bow') { c.fillStyle = '#ffd54f'; c.fillRect(hx + 1, hy - 5, 5, 5); c.fillRect(hx + 8, hy - 5, 5, 5); c.fillStyle = '#ff6f00'; c.fillRect(hx + 6, hy - 3, 2, 2); }
+    else if (k === 'wizard') { c.fillStyle = '#5e35b1'; c.fillRect(hx - 1, hy - 3, 22, 3); c.fillRect(hx + 3, hy - 7, 14, 4); c.fillRect(hx + 6, hy - 11, 8, 4); c.fillRect(hx + 9, hy - 14, 3, 3); c.fillStyle = '#ffd600'; c.fillRect(hx + 9, hy - 6, 3, 3); }
+    else if (k === 'crown') { c.fillStyle = '#fff176'; c.fillRect(hx + 1, hy - 5, 18, 5); c.fillRect(hx + 1, hy - 9, 4, 4); c.fillRect(hx + 8, hy - 10, 4, 5); c.fillRect(hx + 15, hy - 9, 4, 4); c.fillStyle = '#e53935'; c.fillRect(hx + 8, hy - 3, 4, 3); }
+  }
+  function drawChar(c, ci, x, y, o) {
+    const ch = CHARS[ci] || CHARS[0];
+    const col = ch.color || FG, eye = o.eye || BG;
+    x = Math.round(x); y = Math.round(y);
+    let hx, hy;
+    c.fillStyle = col;
+    if (o.duck) {
+      c.fillRect(x, y + 4, 40, 14); c.fillRect(x + 32, y, 22, 12); c.fillRect(x + 50, y + 8, 6, 4); c.fillRect(x - 6, y + 6, 8, 6);
+      c.fillStyle = eye; c.fillRect(x + 44, y + 2, 3, 3);
+      c.fillStyle = col;
+      c.fillRect(x + 8, y + 18, 5, o.leg ? 6 : 3); c.fillRect(x + 24, y + 18, 5, o.leg ? 3 : 6);
+      hx = x + 34; hy = y;
+    } else {
+      drawRows(c, BODY, x, y);
+      drawRows(c, LEGS[o.leg || 0], x, y + BODY.length * S);
+      c.fillStyle = eye; c.fillRect(x + 30, y + 4, o.dead ? 4 : 3, o.dead ? 4 : 3);
+      hx = x + 24; hy = y;
+    }
+    accessory(c, ch.acc, hx, hy);
+  }
 
-  let hi = 0;
-  try { hi = parseInt(localStorage.getItem('dino-hi') || '0', 10) || 0; } catch (e) {}
-
-  let gscroll = 0, dtS = 16.667, state, dino, obstacles, clouds, speed, score, frame, spawnIn, last, running = false, over = false, duckHeld = false;
+  // ---------- 게임 상태 ----------
+  const GAP = { cactusS: 46, cactusM: 50, cactusT: 95, birdH: 50, birdL: 50, pit: 60 };
+  let gscroll = 0, dtS = 16.667, dino, obstacles, coins, clouds, speed, score, frame, spawnIn, nextKind, runGold;
+  let last = 0, running = false, over = false, duckHeld = false, overAt = 0, shopOpen = false, pendingReload = null;
 
   function reset() {
-    dino = { x: 40, y: GROUND - 40, vy: 0, onGround: true, ducking: false };
-    obstacles = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }];
-    speed = 5.5; score = 0; frame = 0; spawnIn = 60; over = false;
+    dino = { x: 40, y: GROUND - 40, vy: 0, onGround: true, ducking: false, jumps: 0, falling: false, fallV: 0 };
+    obstacles = []; coins = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }];
+    speed = 5.5; score = 0; frame = 0; gscroll = 0; spawnIn = 60; nextKind = null; runGold = 0; duckHeld = false; over = false;
   }
   reset();
 
   function jump() {
+    if (shopOpen) return;
     if (over) { if (performance.now() - overAt > 300) { reset(); running = true; } return; }
-    if (!running) { running = true; }
-    if (dino.onGround) { dino.vy = -10.5; dino.y += dino.vy; dino.onGround = false; draw(); }
+    if (!running) running = true;
+    if (dino.onGround) { dino.vy = -10.5; dino.y += dino.vy; dino.onGround = false; dino.jumps = 1; draw(); }
+    else if (dino.jumps < 2) { dino.vy = -9; dino.y += dino.vy; dino.jumps = 2; draw(); }   // 2단 점프
   }
-  let overAt = 0;
 
   addEventListener('keydown', e => {
+    if (shopOpen) return;
     if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
     if (e.code === 'ArrowDown') { e.preventDefault(); duckHeld = true; }
   });
   addEventListener('keyup', e => { if (e.code === 'ArrowDown') duckHeld = false; });
+
   // 입력: 탭 = 즉시 점프, 아래로 스와이프 = 숙이기
   let touching = false, sy = 0, touchJumped = false, touchJumpAt = 0;
   const SW = 14;
@@ -125,20 +205,19 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
     if (before && !dino.onGround) { touchJumped = true; touchJumpAt = performance.now(); }
   }
   function pMove(y) {
-    if (!touching) return;
+    if (!touching || shopOpen) return;
     const dy = y - sy;
     if (dy > SW) {
-      // 스와이프 의도였다면 방금 시작된 점프를 취소하고 바로 숙이기
-      if (touchJumped && performance.now() - touchJumpAt < 300) {
-        dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; touchJumped = false;
+      if (touchJumped && performance.now() - touchJumpAt < 300) {   // 스와이프였다면 방금 점프 취소
+        dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; dino.jumps = 0; touchJumped = false;
       }
       duckHeld = true;
     } else if (dy < 4 && duckHeld) { duckHeld = false; }
   }
   function pEnd() { touching = false; duckHeld = false; }
-  const isUI = e => e.target.closest && e.target.closest('#theme');
+  const isUI = e => e.target && e.target.closest && e.target.closest('#theme,#shopBtn,#shop');
   addEventListener('touchstart', e => { if (isUI(e)) return; e.preventDefault(); pStart(e.touches[0].clientY); }, { passive: false });
-  addEventListener('touchmove', e => { e.preventDefault(); pMove(e.touches[0].clientY); }, { passive: false });
+  addEventListener('touchmove', e => { if (isUI(e)) return; e.preventDefault(); pMove(e.touches[0].clientY); }, { passive: false });
   addEventListener('touchend', pEnd);
   addEventListener('touchcancel', pEnd);
   addEventListener('mousedown', e => { if (isUI(e)) return; pStart(e.clientY); });
@@ -146,7 +225,7 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
   addEventListener('mouseup', pEnd);
   addEventListener('contextmenu', e => e.preventDefault());
 
-  // 다크 모드 토글
+  // ---------- 다크 모드 ----------
   const tb = document.getElementById('theme');
   const isDark = () => root.getAttribute('data-theme') === 'dark' ||
     (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -156,43 +235,122 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
     const next = isDark() ? 'light' : 'dark';
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('dino-theme', next); } catch (err) {}
-    readColors(); syncBtn();
+    readColors(); syncBtn(); if (shopOpen) renderShop();
   });
   syncBtn();
 
-  function spawn() {
-    const roll = Math.random();
-    if (score > 300 && roll < 0.28) {
-      const ys = [GROUND - 60, GROUND - 38, GROUND - 22];
-      const bi = Math.floor(Math.random() * 3);
-      obstacles.push({ type: 'bird', x: W + 20, y: ys[bi], w: 36, h: 24, high: bi === 0 });
-    } else {
-      const n = 1 + Math.floor(Math.random() * 3);
-      const h = 30 + Math.floor(Math.random() * 20);
-      obstacles.push({ type: 'cactus', x: W + 20, y: GROUND - h, w: 14 * n + 4 * (n - 1), h, n });
+  // ---------- 상점 ----------
+  const shop = document.getElementById('shop');
+  const grid = document.getElementById('charGrid');
+  function renderShop() {
+    document.getElementById('goldTotal').textContent = save.gold;
+    grid.innerHTML = CHARS.map((c, i) => {
+      const owned = save.owned.includes(i), sel = save.sel === i;
+      let label, dis = false;
+      if (sel) { label = '사용 중'; dis = true; }
+      else if (owned) label = '선택';
+      else { label = '🪙 ' + c.cost; dis = save.gold < c.cost; }
+      return '<div class="card' + (sel ? ' sel' : '') + '"><canvas width="64" height="64" data-i="' + i + '"></canvas>' +
+        '<div class="nm">' + c.name + '</div><button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
+    }).join('');
+    grid.querySelectorAll('canvas').forEach(cn => {
+      const i = +cn.dataset.i, pc = cn.getContext('2d');
+      pc.clearRect(0, 0, 64, 64);
+      pc.globalAlpha = save.owned.includes(i) ? 1 : 0.5;
+      drawChar(pc, i, 12, 22, { leg: 0, eye: BG });
+      pc.globalAlpha = 1;
+    });
+  }
+  function openShop() { shopOpen = true; running = false; duckHeld = false; touching = false; shop.hidden = false; renderShop(); }
+  function closeShop() { shopOpen = false; shop.hidden = true; tryReload(); }
+  document.getElementById('shopBtn').addEventListener('click', openShop);
+  document.getElementById('shopClose').addEventListener('click', closeShop);
+  shop.addEventListener('click', e => { if (e.target === shop) closeShop(); });
+  grid.addEventListener('click', e => {
+    const b = e.target.closest('button[data-i]'); if (!b || b.disabled) return;
+    const i = +b.dataset.i;
+    if (!save.owned.includes(i)) {
+      if (save.gold < CHARS[i].cost) return;
+      save.gold -= CHARS[i].cost; save.owned.push(i);
     }
-    const gap = 50 + Math.random() * 60 + speed * 8;
-    spawnIn = gap / speed * 2.2;
+    save.sel = i; persist(); renderShop();
+  });
+
+  // ---------- 장애물 / 코인 ----------
+  function pickKind(prev) {
+    let list = [['cactusS', 4], ['cactusM', 3]];
+    if (score > 120) list.push(['pit', 2.5]);
+    if (score > 200) list.push(['cactusT', 2]);
+    if (score > 300) { list.push(['birdL', 1.5]); list.push(['birdH', 2]); }
+    // 2단 점프 직후에 숙여야 하는 높은 새는 불가능하므로 금지
+    if (prev === 'cactusT') list = list.filter(a => a[0] !== 'birdH');
+    const tot = list.reduce((s, a) => s + a[1], 0);
+    let r = Math.random() * tot;
+    for (const a of list) { r -= a[1]; if (r <= 0) return a[0]; }
+    return list[0][0];
+  }
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  function makeObstacle(kind) {
+    const x = W + 30;
+    if (kind === 'cactusS') { const n = rnd(1, 3), h = rnd(28, 45); return { kind, type: 'cactus', x, y: GROUND - h, w: 14 * n + 4 * (n - 1), h, n }; }
+    if (kind === 'cactusM') { const n = rnd(1, 2), h = rnd(52, 70); return { kind, type: 'cactus', x, y: GROUND - h, w: 14 * n + 4 * (n - 1), h, n }; }
+    if (kind === 'cactusT') { const n = rnd(1, 2), h = rnd(105, 125); return { kind, type: 'cactus', x, y: GROUND - h, w: 14 * n + 4 * (n - 1), h, n }; }
+    if (kind === 'birdH') return { kind, type: 'bird', x, y: GROUND - 48, w: 36, h: 24, high: true };
+    if (kind === 'birdL') return { kind, type: 'bird', x, y: GROUND - 26, w: 36, h: 24, high: false };
+    return { kind: 'pit', type: 'pit', x, y: GROUND, w: rnd(70, 110), h: 0 };
+  }
+  function addCoin(x, y) { coins.push({ x, y, ph: Math.random() * 20 }); }
+  function arc(x0, x1, peak, n) {
+    for (let i = 0; i < n; i++) { const t = n === 1 ? 0.5 : i / (n - 1); addCoin(x0 + (x1 - x0) * t, GROUND - 20 - peak * 4 * t * (1 - t)); }
+  }
+  function spawnCoins(o) {
+    if (o.type === 'cactus') arc(o.x - 36, o.x + o.w + 36, o.kind === 'cactusT' ? Math.min(o.h + 28, 150) : Math.min(o.h + 28, 88), 5);
+    else if (o.type === 'pit') arc(o.x - 20, o.x + o.w + 20, 80, 5);
+    else if (o.kind === 'birdH') arc(o.x - 6, o.x + o.w + 6, 0, 4);
   }
 
-  function hit(a, b) {
-    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+  function die(fall) {
+    over = true; running = false; overAt = performance.now();
+    dino.falling = !!fall; dino.fallV = 2; dino.ducking = false;
+    const s = Math.floor(score);
+    if (s > save.hi) save.hi = s;
+    persist(); tryReload();
   }
 
   function update(k) {
     frame += k;
+    const fx1 = dino.x + 10, fx2 = dino.x + 30;
+    const overPit = obstacles.some(o => o.type === 'pit' && fx1 > o.x && fx2 < o.x + o.w);
     dino.ducking = duckHeld && dino.onGround;
+    if (dino.onGround && overPit) { dino.onGround = false; dino.vy = 0; dino.jumps = 2; }   // 구덩이로 걸어 들어감
     if (!dino.onGround) {
       dino.vy += (duckHeld ? 1.4 : 0.6) * k;
       dino.y += dino.vy * k;
-      if (dino.y >= GROUND - 40) { dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; }
+      if (dino.y >= GROUND - 40) {
+        if (!overPit) { dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; dino.jumps = 0; }
+        else if (dino.y > GROUND - 32) { die(true); return; }
+      }
     }
     score += speed * 0.12 * k;
     gscroll += speed * k;
     speed = Math.min(14, 5.5 + score / 250);
 
-    spawnIn -= k; if (spawnIn <= 0) spawn();
+    spawnIn -= k;
+    if (spawnIn <= 0) {
+      const kind = nextKind || pickKind(null);
+      const o = makeObstacle(kind);
+      obstacles.push(o); spawnCoins(o);
+      nextKind = pickKind(kind);
+      // 앞 장애물을 처리할 시간을 충분히 확보 (불가능한 조합 방지)
+      let gap = GAP[kind] + (kind === 'pit' ? o.w / speed : 0) + (nextKind === 'cactusT' ? 10 : 0) + 8 + Math.random() * 28;
+      gap *= 1.1;
+      spawnIn = gap;
+      if (gap > 100) { const cx = W + 30 + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
+    }
     obstacles.forEach(o => o.x -= speed * k);
+    coins.forEach(c => c.x -= speed * k);
     obstacles = obstacles.filter(o => o.x + o.w > -10);
     clouds.forEach(c => { c.x -= speed * 0.2 * k; if (c.x < -50) { c.x = W + 20; c.y = 25 + Math.random() * 60; } });
 
@@ -200,62 +358,58 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
       ? { x: dino.x + 4, y: GROUND - 22, w: 50, h: 20 }
       : { x: dino.x + 8, y: dino.y + 4, w: 26, h: 34 };
     for (const o of obstacles) {
-      const ob = o.high ? { x: o.x + 3, y: 0, w: o.w - 6, h: o.y + o.h - 3 } : { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
-      if (hit(box, ob)) {
-        over = true; running = false; overAt = performance.now();
-        const s = Math.floor(score);
-        if (s > hi) { hi = s; try { localStorage.setItem('dino-hi', String(hi)); } catch (e) {} }
-        break;
-      }
+      if (o.type === 'pit') continue;
+      const ob = o.high ? { x: o.x + 3, y: 0, w: o.w - 6, h: o.y + o.h - 3 }   // 높은 새: 하늘 끝까지 막힘
+                        : { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
+      if (hit(box, ob)) { die(false); return; }
     }
+    // 코인 획득
+    const cb = dino.ducking ? { x: dino.x, y: GROUND - 24, w: 52, h: 24 } : { x: dino.x + 6, y: dino.y + 2, w: 30, h: 38 };
+    let got = 0;
+    coins = coins.filter(c => {
+      if (c.x < -20) return false;
+      if (c.x > cb.x - 9 && c.x < cb.x + cb.w + 9 && c.y > cb.y - 9 && c.y < cb.y + cb.h + 9) { got++; return false; }
+      return true;
+    });
+    if (got) { save.gold += got; runGold += got; persist(); }
   }
 
-  function drawDino() {
-    ctx.fillStyle = FG;
-    if (dino.ducking) {
-      const x = dino.x, y = GROUND - 24;
-      ctx.fillRect(x, y + 4, 40, 14);      // 몸통
-      ctx.fillRect(x + 32, y, 22, 12);     // 머리
-      ctx.fillRect(x + 50, y + 8, 6, 4);   // 입
-      ctx.fillRect(x - 6, y + 6, 8, 6);    // 꼬리
-      ctx.fillStyle = BG; ctx.fillRect(x + 44, y + 2, 3, 3);
-      ctx.fillStyle = FG;
-      const f = Math.floor(frame / 5) % 2;
-      ctx.fillRect(x + 8, y + 18, 5, f ? 6 : 3);
-      ctx.fillRect(x + 24, y + 18, 5, f ? 3 : 6);
-    } else {
-      drawRows(BODY, dino.x, dino.y);
-      const legs = dino.onGround && running ? LEGS[Math.floor(frame / 5) % 2] : LEGS[0];
-      drawRows(legs, dino.x, dino.y + BODY.length * S);
-      if (over) { ctx.fillStyle = BG; ctx.fillRect(dino.x + 32, dino.y + 4, 4, 4); }
-      else { ctx.fillStyle = BG; ctx.fillRect(dino.x + 30, dino.y + 4, 3, 3); }
-    }
-  }
-
+  // ---------- 그리기 ----------
   function drawCactus(o) {
     ctx.fillStyle = FG;
     for (let i = 0; i < o.n; i++) {
-      const x = o.x + i * 18, h = o.h;
-      ctx.fillRect(x + 5, o.y, 5, h);                 // 줄기
-      ctx.fillRect(x, o.y + Math.round(h * 0.35), 5, 4);          // 왼팔
-      ctx.fillRect(x, o.y + Math.round(h * 0.2), 3, Math.round(h * 0.2));
-      ctx.fillRect(x + 10, o.y + Math.round(h * 0.5), 5, 4);      // 오른팔
-      ctx.fillRect(x + 12, o.y + Math.round(h * 0.3), 3, Math.round(h * 0.25));
+      const x = o.x + i * 18, h = o.h, y = o.y;
+      ctx.fillRect(x + 5, y, 5, h);
+      ctx.fillRect(x, y + Math.round(h * 0.35), 5, 4);
+      ctx.fillRect(x, y + Math.round(h * 0.2), 3, Math.round(h * 0.2));
+      ctx.fillRect(x + 10, y + Math.round(h * 0.5), 5, 4);
+      ctx.fillRect(x + 12, y + Math.round(h * 0.3), 3, Math.round(h * 0.25));
     }
   }
   function drawBird(o) {
     ctx.fillStyle = FG;
-    ctx.fillRect(o.x + 6, o.y + 9, 22, 7);            // 몸통
-    ctx.fillRect(o.x, o.y + 11, 8, 3);                // 부리
-    ctx.fillRect(o.x + 26, o.y + 11, 8, 3);           // 꼬리
-    const up = Math.floor(frame / 8) % 2;
-    if (up) { ctx.fillRect(o.x + 12, o.y, 6, 10); ctx.fillRect(o.x + 16, o.y - 2, 6, 4); }
+    ctx.fillRect(o.x + 6, o.y + 9, 22, 7);
+    ctx.fillRect(o.x, o.y + 11, 8, 3);
+    ctx.fillRect(o.x + 26, o.y + 11, 8, 3);
+    if (Math.floor(frame / 8) % 2) { ctx.fillRect(o.x + 12, o.y, 6, 10); ctx.fillRect(o.x + 16, o.y - 2, 6, 4); }
     else { ctx.fillRect(o.x + 12, o.y + 16, 6, 8); ctx.fillRect(o.x + 16, o.y + 20, 6, 4); }
+  }
+  function drawSkyWall(o) {   // 점프로 못 넘는다는 걸 보여주는 하늘 장벽
+    ctx.fillStyle = FG;
+    ctx.globalAlpha = 0.10; ctx.fillRect(o.x + 2, 0, o.w - 4, o.y);
+    ctx.globalAlpha = 0.45;
+    for (let yy = 0; yy < o.y - 4; yy += 12) { ctx.fillRect(o.x + 2, yy, 2, 6); ctx.fillRect(o.x + o.w - 4, yy, 2, 6); }
+    ctx.globalAlpha = 1;
+  }
+  function drawCoin(c) {
+    const cx = Math.round(c.x), cy = Math.round(c.y);
+    const sx = Math.max(0.25, Math.abs(Math.cos((frame + c.ph) / 9)));
+    ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.ellipse(cx, cy, 8 * sx, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.ellipse(cx, cy, 4 * sx, 4.5, 0, 0, Math.PI * 2); ctx.fill();
   }
 
   function draw() {
     ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-    // 구름
     ctx.fillStyle = FG; ctx.globalAlpha = 0.18;
     clouds.forEach(c => { const cx = Math.round(c.x), cy = Math.round(c.y); ctx.fillRect(cx, cy, 40, 8); ctx.fillRect(cx + 8, cy - 6, 22, 8); });
     ctx.globalAlpha = 1;
@@ -265,32 +419,72 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
       const gx = Math.round((((i * 83 - gscroll) % (W + 40)) + (W + 40)) % (W + 40) - 20);
       ctx.fillRect(gx, GROUND + 8 + (i % 3) * 5, 3 + (i % 4) * 3, 2);
     }
-    obstacles.forEach(o => { const r = Object.assign({}, o, { x: Math.round(o.x) }); o.type === 'bird' ? drawBird(r) : drawCactus(r); });
-    drawDino();
-    // 점수
-    ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'right';
+    // 구덩이
+    obstacles.forEach(o => {
+      if (o.type !== 'pit') return;
+      const px = Math.round(o.x);
+      ctx.fillStyle = BG; ctx.fillRect(px, GROUND, o.w, H - GROUND);
+      ctx.fillStyle = FG; ctx.fillRect(px, GROUND, 2, H - GROUND); ctx.fillRect(px + o.w - 2, GROUND, 2, H - GROUND);
+      ctx.globalAlpha = 0.12; ctx.fillRect(px + 2, GROUND + 2, o.w - 4, H - GROUND); ctx.globalAlpha = 1;
+    });
+    coins.forEach(drawCoin);
+    obstacles.forEach(o => {
+      if (o.type === 'pit') return;
+      const r = Object.assign({}, o, { x: Math.round(o.x) });
+      if (o.type === 'bird') { if (o.high) drawSkyWall(r); drawBird(r); } else drawCactus(r);
+    });
+    // 캐릭터
+    const leg = (dino.onGround && running) ? (Math.floor(frame / 5) % 2) : 0;
+    if (dino.ducking) drawChar(ctx, save.sel, dino.x, GROUND - 24, { duck: true, leg, dead: over });
+    else drawChar(ctx, save.sel, dino.x, dino.y, { leg, dead: over });
+    // HUD
+    ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.arc(20, 18, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.arc(20, 18, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'left';
+    ctx.fillText(String(save.gold), 34, 24);
+    ctx.textAlign = 'right';
     const pad = n => String(n).padStart(5, '0');
-    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(hi), W - 120, 24); ctx.globalAlpha = 1;
+    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), W - 120, 24); ctx.globalAlpha = 1;
     ctx.fillText(pad(Math.floor(score)), W - 16, 24);
     ctx.textAlign = 'center';
-    if (!running && !over) { ctx.fillText('탭 또는 SPACE로 시작', W / 2, 90); }
+    if (!running && !over) ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, 100);
     if (over) {
       ctx.font = 'bold 22px "Courier New", monospace';
-      ctx.fillText('G A M E   O V E R', W / 2, 80);
+      ctx.fillText('G A M E   O V E R', W / 2, 90);
       ctx.font = '14px "Courier New", monospace';
-      ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, 108);
+      ctx.fillText('획득 골드 +' + runGold, W / 2, 116);
+      ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, 138);
     }
   }
 
   function loop(t) {
     if (!last) last = t;
-    const dt = t - last;
-    last = t; dtS += (Math.min(dt, 50) - dtS) * 0.15;
-    if (running) update(Math.min(dtS / 16.667, 3));
+    const dt = t - last; last = t;
+    dtS += (Math.min(dt, 50) - dtS) * 0.15;
+    const k = Math.min(dtS / 16.667, 3);
+    if (running && !shopOpen) update(k);
+    if (over && dino.falling && dino.y < H + 80) { dino.fallV += 0.6 * k; dino.y += dino.fallV * k; }
     draw();
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
+
+  // ---------- 새 버전 자동 새로고침 ----------
+  function tryReload() {
+    if (!pendingReload || running || shopOpen) return;
+    try { location.replace(location.pathname + '?v=' + pendingReload); } catch (e) {}
+  }
+  async function checkUpdate() {
+    try {
+      const r = await fetch(location.pathname + '?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const m = (await r.text()).match(/VERSION\s*=\s*'(\d{8}-\d+)'/);
+      if (m && m[1] !== VERSION) { pendingReload = m[1]; tryReload(); }
+    } catch (e) {}
+  }
+  setInterval(() => { checkUpdate(); tryReload(); }, 30000);
+  setTimeout(checkUpdate, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 })();
 </script>
 </body>
