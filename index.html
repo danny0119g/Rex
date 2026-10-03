@@ -17,16 +17,17 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 .bar { position: fixed; z-index: 5; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); display: flex; gap: 8px; }
 .ibtn { width: 42px; height: 36px; border: 0; border-radius: 10px; background: rgba(128,128,128,.38); color: #fff; font-size: 18px; touch-action: none; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .ibtn.on { outline: 2px solid #ff5252; }
-.ver { position: fixed; z-index: 2; left: 8px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 10px; color: #888; opacity: .5; pointer-events: none; }
-#skillBtn { position: fixed; z-index: 5; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  width: 78px; height: 78px; border-radius: 50%; border: 3px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
+.ver { position: fixed; z-index: 2; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 10px; color: #888; opacity: .5; pointer-events: none; }
+#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); top: 150px; width: 128px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+#skillBtn { position: relative; pointer-events: auto; width: 62px; height: 62px; border-radius: 50%; border: 3px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
   background: conic-gradient(#ffc107 var(--p, 100%), rgba(70,70,80,.7) 0); }
-#skillBtn::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: rgba(25,25,35,.86); }
-#skillBtn span { position: relative; display: block; line-height: 1.1; }
-#skillBtn .ic { font-size: 26px; }
-#skillBtn .nm { font-size: 9px; margin-top: 2px; opacity: .9; }
+#skillBtn::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: rgba(25,25,35,.86); }
+#skillBtn .ic { position: relative; font-size: 26px; line-height: 1; }
 #skillBtn.ready { border-color: #ffc107; animation: ready 1.2s ease-in-out infinite; }
 @keyframes ready { 0%,100% { box-shadow: 0 0 6px rgba(255,193,7,.5); } 50% { box-shadow: 0 0 20px rgba(255,193,7,.95); } }
+.skdesc { background: rgba(20,22,32,.66); color: #fff; padding: 6px 8px; border-radius: 8px; font-size: 11px; line-height: 1.4; max-width: 128px; box-sizing: border-box; pointer-events: none; }
+.skdesc b { display: block; font-size: 12px; color: #ffd54f; }
+.skdesc small { display: block; margin-top: 2px; opacity: .8; font-size: 10px; }
 #shop { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center;
   padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
 .panel { background: var(--bg); color: var(--fg); border-radius: 16px; width: 100%; max-width: 480px; max-height: 100%;
@@ -63,7 +64,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   <button class="ibtn" id="shopBtn" aria-label="캐릭터 상점">🛒</button>
   <button class="ibtn" id="theme" aria-label="다크 모드 전환">🌙</button>
 </div>
-<button id="skillBtn" hidden aria-label="스킬"><span class="ic" id="skIcon">✨</span><span class="nm" id="skName"></span></button>
+<div id="skillBox" hidden>
+  <button id="skillBtn" aria-label="스킬"><span class="ic" id="skIcon">✨</span></button>
+  <div class="skdesc"><b id="skName"></b><span id="skText"></span><small id="skCd"></small></div>
+</div>
 <div class="ver" id="ver"></div>
 
 <div id="shop" hidden>
@@ -81,7 +85,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-6';
+  const VERSION = '20261003-7';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -89,7 +93,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
   // 화면 크기는 기기에 맞춰 바뀜 (전체 화면). 가로 화면은 폭 700, 세로 화면은 폭 520 기준
-  let W = 700, H = 260, GROUND = 228, SC = 1;
+  let W = 740, H = 260, GROUND = 228, SC = 1, DX = 140;   // DX: 공룡의 x 위치 (왼쪽은 HUD·스킬 영역)
   let CEIL_Y0 = GROUND - 170, CEIL_Y1 = GROUND - 140;   // 천장 장애물: 1단 점프는 지나가고 2단 점프는 막힘
   const SAFE = { t: 0, r: 0, b: 0, l: 0 };               // 노치/홈바 안전 영역 (논리 픽셀)
 
@@ -124,12 +128,12 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
   const wrap = (v, m) => ((v % m) + m) % m;
 
-  // ---------- 등급 / 목숨 / 캐릭터 ----------
+  // ---------- 등급 / 방어력 / 캐릭터 ----------
   const RARITY = [
     { name: '일반', color: '#9e9e9e' }, { name: '희귀', color: '#2196f3' }, { name: '영웅', color: '#9c27b0' },
     { name: '전설', color: '#ff9800' }, { name: '신화', color: '#ff1744' },
   ];
-  const LIVES = [1, 2, 3, 4, 5];   // 등급별 목숨 (기본 1개)
+  const LIVES = [1, 2, 3, 4, 5];   // 등급별 방어력 (기본 1). 장애물에 부딪힐 때마다 -1, 0이 되면 게임 오버
   const CHARS = [
     // 0~2 일반
     { name: '공룡',       rar: 0, cost: 0,     color: null,      acc: 'none' },
@@ -181,10 +185,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     coin:   { name: '스포트라이트', icon: '✨',  cd: 2400, desc: '8초간 코인 자석 + 골드 x2' },
     dash:   { name: '그림자 질주',   icon: '💨',  cd: 2100, desc: '2초간 무적 돌진, 장애물 파괴' },
     bats:   { name: '박쥐 떼',       icon: '🦇',  cd: 3600, desc: '화면의 장애물을 모두 코인으로' },
-    heal:   { name: '치유의 빛',     icon: '💖',  cd: 3000, desc: '목숨 +1 (최대치까지)' },
+    heal:   { name: '치유의 빛',     icon: '💖',  cd: 3000, desc: '방어력 +1 (최대치까지)' },
     fire:   { name: '용의 숨결',     icon: '🔥',  cd: 2700, desc: '1.5초간 불길로 앞을 모두 태움' },
     slow:   { name: '시간 정지',     icon: '⏳',  cd: 3000, desc: '5초간 시간이 느려짐' },
-    fly:    { name: '오로라 비행',   icon: '🌈',  cd: 3300, desc: '5초간 무적 비행 + 골드 x2, 끝나면 목숨 +1' },
+    fly:    { name: '오로라 비행',   icon: '🌈',  cd: 3300, desc: '5초간 무적 비행 + 골드 x2, 끝나면 방어력 +1' },
   };
   if (!CHARS[save.sel] || !isOwned(save.sel)) save.sel = 0;
 
@@ -587,6 +591,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   let stIdx = 0, stPrev = 0, stT = 1, bannerT = 0;
   let items = [], magnetT = 0, x2T = 0, itemIn = 500, toast = { t: 0, s: '' };
   let lives = 1, maxLives = 1, inv = 0;
+  let hitStopT = 0, shakeT = 0, restartT = 0, hurtFx = 0;   // 피격 연출: 멈춤 / 화면 진동 / 재시작 가속 / 붉은 화면
   let skillT = 0, shieldT = 0, dashT = 0, fireT = 0, slowT = 0, flyT = 0, batFx = 0, healFx = 0, flashT = 0;
   const ITEM_T = 600;   // 아이템 지속 시간(프레임) ≈ 10초
   const STARS = [];
@@ -594,7 +599,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   const skillOf = () => { const k = (CHARS[save.sel] || CHARS[0]).skill; return k ? SKILLS[k] : null; };
 
   function reset() {
-    dino = { x: 40, y: GROUND - 40, vy: 0, onGround: true, ducking: false, jumps: 0, falling: false, fallV: 0 };
+    dino = { x: DX, y: GROUND - 40, vy: 0, onGround: true, ducking: false, jumps: 0, falling: false, fallV: 0 };
     obstacles = []; coins = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }, { x: 620, y: 50 }];
     score = STAGES[save.startStage || 0].at;
     speed = speedAt(score);
@@ -606,6 +611,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     maxLives = livesOf(); lives = maxLives; inv = 0;
     const sk0 = skillOf(); skillT = sk0 ? Math.round(sk0.cd * 0.4) : 0;
     shieldT = dashT = fireT = slowT = flyT = batFx = healFx = flashT = 0;
+    hitStopT = shakeT = restartT = hurtFx = 0;
   }
   reset(); stPrev = stIdx; stT = 1;
 
@@ -615,7 +621,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function layout() {
     const vw = Math.max(320, window.innerWidth || 700), vh = Math.max(200, window.innerHeight || 260);
     const land = vw / vh >= 1.45, oldG = GROUND;
-    W = land ? 700 : 520; SC = vw / W;
+    W = land ? 740 : 560; DX = land ? 140 : 70; SC = vw / W;
     H = Math.max(260, Math.round(vh / SC));
     GROUND = land ? H - 32 : clamp(Math.round(H * 0.66), 228, H - 32);
     CEIL_Y0 = GROUND - 170; CEIL_Y1 = GROUND - 140;
@@ -626,6 +632,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       SAFE.t = (parseFloat(cs.paddingTop) || 0) / SC; SAFE.r = (parseFloat(cs.paddingRight) || 0) / SC;
       SAFE.b = (parseFloat(cs.paddingBottom) || 0) / SC; SAFE.l = (parseFloat(cs.paddingLeft) || 0) / SC;
     } catch (e) {}
+    if (dino) dino.x = DX;
+    try { document.getElementById('skillBox').style.top = Math.round((SAFE.t + 22 + 58 + 14 * 4 + 8) * SC) + 'px'; } catch (e) {}   // HUD 바로 아래
     if (dino && oldG !== GROUND) {   // 지면 위치가 바뀌면 진행 중인 오브젝트도 같이 이동
       const d = GROUND - oldG;
       dino.y += d; obstacles.forEach(o => o.y += d); coins.forEach(c => c.y += d); items.forEach(it => it.y += d);
@@ -639,7 +647,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
   function burst(o) { const cx = o.x + o.w / 2; addCoin(cx - 8, GROUND - 20); addCoin(cx + 8, GROUND - 30); }   // 부순 장애물은 코인으로
   function useSkill() {
-    if (!running || over || shopOpen) return;
+    if (!running || over || shopOpen || hitStopT > 0) return;
     const sk = skillOf(); if (!sk || skillT > 0) return;
     const id = CHARS[save.sel].skill;
     skillT = sk.cd; toast.s = sk.name + '!'; toast.t = 80;
@@ -647,13 +655,13 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     else if (id === 'coin') { magnetT = 480; x2T = 480; shieldT = Math.max(shieldT, 30); }
     else if (id === 'dash') { dashT = 110; shieldT = Math.max(shieldT, 130); }
     else if (id === 'bats') { batFx = 60; flashT = 14; shieldT = Math.max(shieldT, 30); obstacles = obstacles.filter(o => { if (o.x < W + 40) { burst(o); return false; } return true; }); }
-    else if (id === 'heal') { if (lives < maxLives) lives++; else { save.gold += 20; runGold += 20; persist(); toast.s = '목숨 최대 · 골드 +20'; } healFx = 50; shieldT = Math.max(shieldT, 60); }
+    else if (id === 'heal') { if (lives < maxLives) lives++; else { save.gold += 20; runGold += 20; persist(); toast.s = '방어력 최대 · 골드 +20'; } healFx = 50; shieldT = Math.max(shieldT, 60); }
     else if (id === 'fire') { fireT = 90; shieldT = Math.max(shieldT, 110); }
     else if (id === 'slow') { slowT = 300; shieldT = Math.max(shieldT, 60); }
     else if (id === 'fly') { flyT = 300; shieldT = Math.max(shieldT, 400); x2T = Math.max(x2T, 300); magnetT = Math.max(magnetT, 300); }
   }
   function jump() {
-    if (shopOpen) return;
+    if (shopOpen || hitStopT > 0) return;
     if (over) { if (performance.now() - overAt > 300) { reset(); running = true; } return; }
     if (!running) running = true;
     if (flyT > 0) return;   // 비행 중에는 점프 입력 무시
@@ -730,17 +738,20 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   syncStage();
 
   // ---------- 스킬 버튼 ----------
-  const skillBtn = document.getElementById('skillBtn');
+  const skillBtn = document.getElementById('skillBtn'), skillBox = document.getElementById('skillBox');
   skillBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); useSkill(); });
-  let skShown = -2;
+  let skShown = -2, skCdTxt = '';
   function syncSkillBtn() {
     const sk = skillOf();
-    if (!sk) { if (skShown !== -1) { skillBtn.hidden = true; skShown = -1; } return; }
-    if (skShown !== save.sel) {
-      skShown = save.sel; skillBtn.hidden = false;
-      document.getElementById('skIcon').textContent = sk.icon; document.getElementById('skName').textContent = sk.name;
+    if (!sk) { if (skShown !== -1) { skillBox.hidden = true; skShown = -1; } return; }
+    if (skShown !== save.sel) {   // 캐릭터가 바뀌면 이름·설명 갱신
+      skShown = save.sel; skillBox.hidden = false; skCdTxt = '';
+      document.getElementById('skIcon').textContent = sk.icon;
+      document.getElementById('skName').textContent = sk.name;
+      document.getElementById('skText').textContent = sk.desc;
     }
-    const ready = skillT <= 0;
+    const ready = skillT <= 0, txt = ready ? '사용 가능 · S키 · 쿨타임 ' + Math.round(sk.cd / 60) + '초' : '재사용까지 ' + Math.ceil(skillT / 60) + '초';
+    if (txt !== skCdTxt) { skCdTxt = txt; document.getElementById('skCd').textContent = txt; }
     skillBtn.style.setProperty('--p', (ready ? 100 : Math.round((1 - skillT / sk.cd) * 100)) + '%');
     skillBtn.classList.toggle('ready', ready);
   }
@@ -757,7 +768,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     else { label = '🪙 ' + fmt(c.cost); dis = save.gold < c.cost; }
     return '<div class="card r' + c.rar + (sel ? ' sel' : '') + '" style="--rc:' + R.color + '"><canvas width="100" height="72" data-i="' + i + '"></canvas>' +
       '<div class="nm">' + c.name + '<span class="badge" style="background:' + R.color + '">' + R.name + '</span></div>' +
-      '<div class="pr">' + (c.cost ? '🪙 ' + fmt(c.cost) : '무료') + ' · ♥ ' + LIVES[c.rar] + '</div>' +
+      '<div class="pr">' + (c.cost ? '🪙 ' + fmt(c.cost) : '무료') + ' · 🛡 방어력 ' + LIVES[c.rar] + '</div>' +
       (c.skill ? '<div class="sk">' + SKILLS[c.skill].icon + ' ' + SKILLS[c.skill].name + '</div>' : '') +
       '<button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
   }
@@ -767,7 +778,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     RARITY.forEach((R, ri) => {
       const list = CHARS.map((c, i) => [c, i]).filter(p => p[0].rar === ri);
       if (!list.length) return;
-      html += '<div class="sec" style="color:' + R.color + '"><span>' + R.name + ' · ' + list.length + '종 · 목숨 ' + LIVES[ri] + '개' + (ri >= 3 ? ' · 스킬' : '') + '</span><i></i></div>';
+      html += '<div class="sec" style="color:' + R.color + '"><span>' + R.name + ' · ' + list.length + '종 · 방어력 ' + LIVES[ri] + (ri >= 3 ? ' · 스킬' : '') + '</span><i></i></div>';
       list.forEach(p => { html += cardHTML(p[0], p[1]); });
     });
     grid.innerHTML = html;
@@ -786,7 +797,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function askBuy(i) {
     const c = CHARS[i], R = RARITY[c.rar];
     pendingBuy = i;
-    document.getElementById('confirmMsg').innerHTML = '<b>' + c.name + '</b> <span style="color:' + R.color + '">[' + R.name + ' · 목숨 ' + LIVES[c.rar] + '개' + (c.skill ? ' · 스킬: ' + SKILLS[c.skill].name : '') + ']</span><br>🪙 ' + fmt(c.cost) +
+    document.getElementById('confirmMsg').innerHTML = '<b>' + c.name + '</b> <span style="color:' + R.color + '">[' + R.name + ' · 방어력 ' + LIVES[c.rar] + (c.skill ? ' · 스킬: ' + SKILLS[c.skill].name : '') + ']</span><br>🪙 ' + fmt(c.cost) +
       ' 에 구매할까요?<br><small>구매 후 잔액 🪙 ' + fmt(save.gold - c.cost) + '</small>';
     confirmBox.hidden = false;
   }
@@ -801,7 +812,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function openShop() { shopOpen = true; running = false; duckT = 0; touching = false; shop.hidden = false; closeConfirm(); renderShop(); }
   function closeShop() {
     shopOpen = false; shop.hidden = true; previews = []; closeConfirm();
-    if (!running && !over) { maxLives = livesOf(); lives = maxLives; }   // 바꾼 캐릭터의 목숨 반영
+    if (!running && !over) { maxLives = livesOf(); lives = maxLives; }   // 바꾼 캐릭터의 방어력 반영
     tryReload();
   }
   document.getElementById('shopBtn').addEventListener('click', openShop);
@@ -884,29 +895,27 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
+  const vib = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };   // 기기 진동 (지원하는 폰만)
   function die(fall) {
     over = true; running = false; overAt = performance.now();
     dino.falling = !!fall; dino.fallV = 2; dino.ducking = false;
+    shakeT = fall ? 22 : 30; hurtFx = 30; vib(fall ? [220] : [160, 60, 160]);
     const s = Math.floor(score);
     if (s > save.hi) save.hi = s;
     persist(); tryReload();
   }
-  function hurt(fall, pit) {   // 목숨이 남아 있으면 무적 시간과 함께 계속, 아니면 게임 오버
+  function hurt() {   // 장애물에 부딪힘: 방어력 -1. 남아 있으면 잠깐 멈췄다가(진동) 다시 출발, 0이면 게임 오버
     lives--;
-    if (lives <= 0) { die(fall); return true; }
-    inv = INV_T; toast.s = '목숨 -1'; toast.t = 70;
-    if (fall && pit) {   // 구덩이는 메우고 땅 위로 복귀
-      obstacles = obstacles.filter(o => o !== pit);
-      dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; dino.jumps = 0;
-    }
+    if (lives <= 0) { die(false); return true; }
+    hitStopT = 38; shakeT = 30; hurtFx = 38; flashT = 5; inv = INV_T; restartT = 0;
+    toast.s = '방어력 -1'; toast.t = 70; vib([90, 50, 90]);
     return false;
   }
 
   function update(k, raw) {
     frame += k;
     const fx1 = dino.x + 10, fx2 = dino.x + 30;
-    const prot = inv > 0 || shieldT > 0;   // 무적(맞은 직후 / 스킬) 중엔 구덩이도 무시
-    const pit = prot ? null : obstacles.find(o => o.type === 'pit' && fx1 > o.x && fx2 < o.x + o.w);
+    const pit = shieldT > 0 ? null : obstacles.find(o => o.type === 'pit' && fx1 > o.x && fx2 < o.x + o.w);   // 구덩이는 방어력과 상관없이 즉사 (스킬 무적만 예외)
     const overPit = !!pit;
     dino.ducking = duckT > 0 && dino.onGround && flyT <= 0;
     if (flyT > 0) {   // 오로라 비행: 장애물 위를 떠서 이동
@@ -920,7 +929,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       dino.y += dino.vy * k;
       if (dino.y >= GROUND - 40) {
         if (!overPit) { dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; dino.jumps = 0; }
-        else if (dino.y > GROUND - 32) { if (hurt(true, pit)) return; }
+        else if (dino.y > GROUND - 32) { die(true); return; }
       }
     }
     if (duckT > 0) duckT -= k;
@@ -933,7 +942,9 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (batFx > 0) batFx -= k;
     if (healFx > 0) healFx -= k;
     if (flashT > 0) flashT -= k;
-    const dm = dashT > 0 ? 1.6 : 1, sp = speed * dm;   // 질주 중에는 세상이 1.6배 빠르게 지나감
+    if (restartT > 0) restartT -= k;
+    const rm = restartT > 0 ? 0.35 + 0.65 * (1 - restartT / 30) : 1;   // 피격 후 재시작: 천천히 속도를 올림
+    const dm = dashT > 0 ? 1.6 : 1, sp = speed * dm * rm;   // 질주 중에는 세상이 1.6배 빠르게 지나감
     score += sp * 0.12 * k;
     gscroll += sp * k;
     speed = speedAt(score);
@@ -941,7 +952,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (ns !== stIdx) { stPrev = stIdx; stIdx = ns; stT = 0; bannerT = 150; }
     if (bannerT > 0) bannerT -= k;
 
-    spawnIn -= k * dm;
+    spawnIn -= k * dm * rm;
     if (spawnIn <= 0) {
       const kind = nextKind || pickKind(null);
       const o = makeObstacle(kind);
@@ -974,7 +985,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       if (dashT > 0) obstacles = obstacles.filter(o => { if (obsBoxes(o).some(b => hit(box, b))) { burst(o); return false; } return true; });   // 질주: 부딪히면 부숴짐
     } else if (inv <= 0) {
       for (const o of obstacles) {
-        if (obsBoxes(o).some(b => hit(box, b))) { if (hurt(false, null)) return; break; }
+        if (obsBoxes(o).some(b => hit(box, b))) { hurt(); return; }
       }
     }
     const cb = dino.ducking ? { x: dino.x, y: GROUND - 24, w: 52, h: 24 } : { x: dino.x + 6, y: dino.y + 2, w: 30, h: 38 };
@@ -1018,9 +1029,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
         ctx.fillRect(x + 5, y, 5, h); ctx.fillRect(x, y + Math.round(h * 0.35), 5, 4); ctx.fillRect(x, y + Math.round(h * 0.2), 3, Math.round(h * 0.2));
         ctx.fillRect(x + 10, y + Math.round(h * 0.5), 5, 4); ctx.fillRect(x + 12, y + Math.round(h * 0.3), 3, Math.round(h * 0.25));
       } else if (st === 1) {
-        ctx.fillStyle = '#78909c'; ctx.fillRect(x + 1, y, 12, h);
-        ctx.fillStyle = '#90a4ae'; ctx.fillRect(x, y, 14, 5); ctx.fillRect(x, y - 3, 4, 3); ctx.fillRect(x + 10, y - 3, 4, 3);
-        ctx.fillStyle = '#546e7a';
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 1, y - 4, 16, h + 5);   // 흰 외곽선
+        ctx.fillStyle = '#1b2547'; ctx.fillRect(x + 1, y, 12, h);
+        ctx.fillStyle = '#ffc107'; ctx.fillRect(x, y, 14, 5); ctx.fillRect(x, y - 3, 4, 3); ctx.fillRect(x + 10, y - 3, 4, 3);
+        ctx.fillStyle = '#3d4f85';
         for (let by = y + 9, r = 0; by < y + h - 2; by += 9, r++) { ctx.fillRect(x + 1, by, 12, 1); ctx.fillRect(x + (r % 2 ? 4 : 9), by - 9, 1, 9); }
       } else if (st === 2) {
         const g = ctx.createLinearGradient(0, y, 0, y + h);
@@ -1047,13 +1059,14 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   function drawSpikes(o) {   // 땅 가시
     const st = o.st | 0, n = Math.round(o.w / 12), vh = o.vh;
-    const col = [FG, '#90a4ae', '#ce93d8', '#ff6d00', '#ffd54f'][st];
-    ctx.fillStyle = col; ctx.beginPath();
+    const col = [FG, '#1b2547', '#ce93d8', '#ff6d00', '#ffd54f'][st];
+    ctx.beginPath();
     for (let i = 0; i < n; i++) { const x = o.x + i * 12; ctx.moveTo(x, GROUND); ctx.lineTo(x + 6, GROUND - vh); ctx.lineTo(x + 12, GROUND); }
-    ctx.fill();
+    if (st === 1) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.stroke(); }   // 흰 외곽선
+    ctx.fillStyle = col; ctx.fill();
     for (let i = 0; i < n; i++) {
       const x = o.x + i * 12;
-      if (st === 1) { ctx.fillStyle = '#eceff1'; ctx.fillRect(x + 5, GROUND - vh + 4, 2, Math.round(vh * 0.4)); }
+      if (st === 1) { ctx.fillStyle = '#ff7043'; ctx.fillRect(x + 5, GROUND - vh, 2, 5); }
       else if (st === 3) { ctx.fillStyle = Math.floor(frame / 6 + i) % 2 ? '#ffeb3b' : '#ff9800'; ctx.fillRect(x + 5, GROUND - vh, 2, 4); }
       else if (st === 4) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 5, GROUND - vh + 3, 2, 3); }
       else if (st === 2) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(x + 5, GROUND - vh + 3, 1, Math.round(vh * 0.4)); }
@@ -1069,8 +1082,9 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     const st = o.st | 0;
     if (st === 2) { drawUFO(o); return; }
     if (st === 4) birdShape(o, '#d4a72c', 1);
-    birdShape(o, [FG, '#455a64', null, '#b71c1c', '#ffffff'][st], 0);
-    ctx.fillStyle = st === 3 ? '#ffeb3b' : (st === 4 ? '#6d4c00' : BG); ctx.fillRect(o.x + 4, o.y + 15, 2, 2);
+    else if (st === 1) birdShape(o, '#ffffff', 2);   // 흰 외곽선
+    birdShape(o, [FG, '#1b2547', null, '#b71c1c', '#ffffff'][st], 0);
+    ctx.fillStyle = st === 3 ? '#ffeb3b' : (st === 4 ? '#6d4c00' : (st === 1 ? '#ffc107' : BG)); ctx.fillRect(o.x + 4, o.y + 15, 2, 2);
   }
   function drawUFO(o) {   // 새 → UFO (36x36 영역)
     const cx = o.x + 16, f = Math.floor(frame / 6) % 2;
@@ -1083,7 +1097,13 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   function drawCeil(cr, st) {   // 구덩이·일부 장애물 위의 천장 가시: 2단 점프로 넘지 못하게 막음
     const x0 = Math.round(cr.x), w = cr.w;
-    const col = ['#7a6a58', '#546e7a', '#9fa8da', '#ff5722', '#d4a72c'][st | 0];
+    const col = ['#7a6a58', '#1b2547', '#9fa8da', '#ff5722', '#d4a72c'][st | 0];
+    if ((st | 0) === 1) {   // 하늘성: 흰 외곽선으로 배경과 분리
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x0 - 2, CEIL_Y0 - 2, w + 4, 16); ctx.fillRect(x0 + 3, 0, 5, CEIL_Y0); ctx.fillRect(x0 + w - 8, 0, 5, CEIL_Y0);
+      ctx.beginPath();
+      for (let sx = Math.max(0, Math.floor(-x0 / 14) * 14), e = Math.min(w, W - x0 + 14); sx < e; sx += 14) { ctx.moveTo(x0 + sx, CEIL_Y0 + 12); ctx.lineTo(x0 + sx + 7, CEIL_Y1); ctx.lineTo(x0 + sx + 14, CEIL_Y0 + 12); }
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.stroke();
+    }
     ctx.fillStyle = col;
     ctx.fillRect(x0, CEIL_Y0, w, 12);
     ctx.fillRect(x0 + 4, 0, 3, CEIL_Y0); ctx.fillRect(x0 + w - 7, 0, 3, CEIL_Y0);
@@ -1092,6 +1112,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     for (let sx = s0; sx < s1; sx += 14) { ctx.moveTo(x0 + sx, CEIL_Y0 + 12); ctx.lineTo(x0 + sx + 7, CEIL_Y1); ctx.lineTo(x0 + sx + 14, CEIL_Y0 + 12); }
     ctx.fill();
     if ((st | 0) === 3) { for (let sx = s0; sx < s1; sx += 14) { ctx.fillStyle = Math.floor(frame / 5 + sx / 14) % 2 ? '#ffeb3b' : '#ff9800'; ctx.fillRect(x0 + sx + 6, CEIL_Y1, 2, 4); } }
+    else if ((st | 0) === 1) { ctx.fillStyle = '#ffc107'; ctx.fillRect(x0, CEIL_Y0, w, 3); for (let sx = s0; sx < s1; sx += 14) ctx.fillRect(x0 + sx + 6, CEIL_Y1 - 3, 2, 4); }
     else if ((st | 0) === 2) { ctx.fillStyle = 'rgba(128,222,234,0.5)'; ctx.fillRect(x0, CEIL_Y0 + 12, w, 1); }
     else if ((st | 0) === 4) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(x0, CEIL_Y0 + 2, w, 2); }
   }
@@ -1150,6 +1171,11 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     ctx.fillStyle = col; ctx.fillRect(x0, y, 80 * clamp(frac, 0, 1), 8);
     ctx.fillStyle = FG; ctx.font = 'bold 10px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(label, x0 + 86, y + 8);
   }
+  function shieldIcon(c, x, y, col) {   // 방패 아이콘 (방어력)
+    x = Math.round(x); y = Math.round(y);
+    c.fillStyle = col; c.fillRect(x - 5, y - 6, 10, 7); c.fillRect(x - 4, y + 1, 8, 3); c.fillRect(x - 2, y + 4, 4, 2);
+    c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(x - 4, y - 5, 3, 5);
+  }
   function drawCoin(c) {
     const cx = Math.round(c.x), cy = Math.round(c.y);
     const sx = Math.max(0.25, Math.abs(Math.cos((frame + c.ph) / 9)));
@@ -1176,7 +1202,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, GROUND);
     const sx0 = W - 130, sg = ctx.createRadialGradient(sx0, 56, 4, sx0, 56, 90); sg.addColorStop(0, 'rgba(255,255,255,0.95)'); sg.addColorStop(0.3, 'rgba(255,236,170,0.55)'); sg.addColorStop(1, 'rgba(255,236,170,0)');
     ctx.fillStyle = sg; ctx.fillRect(sx0 - 100, 0, 230, 160);
-    ctx.fillStyle = 'rgba(150,175,205,0.75)';
+    ctx.fillStyle = 'rgba(185,205,228,0.5)';
     for (let i = 0; i < 3; i++) castle(wrap(i * 330 - gscroll * 0.06, W + 330) - 120, 0.9 + (i % 2) * 0.25);
     ctx.fillStyle = 'rgba(255,255,255,0.92)';
     clouds.forEach(c => cloudShape(Math.round(c.x), Math.round(c.y), 1.1));
@@ -1274,6 +1300,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     FG = stT < 1 ? mixHex(stageFG(stPrev), stageFG(stIdx), stT) : stageFG(stIdx);
     BG = stT < 1 ? mixHex(stageBG(stPrev), stageBG(stIdx), stT) : stageBG(stIdx);
     ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    if (shakeT > 0) { const am = Math.min(9, shakeT * 0.5); ctx.translate((Math.random() - 0.5) * 2 * am, (Math.random() - 0.5) * 2 * am); }   // 화면 진동
     if (stT < 1) drawBg(stPrev, 1);
     drawBg(stIdx, stT < 1 ? stT : 1);
     // 땅
@@ -1310,9 +1338,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       for (let i = 0; i < 7; i++) ctx.fillRect(Math.round(wrap(i * 131 - frame * 30, W)), Math.round(GROUND - 130 + i * 19), 44, 2);
       ctx.globalAlpha = 1;
     }
-    if (!(inv > 0 && Math.floor(inv / 5) % 2)) {
-      if (dino.ducking) drawChar(ctx, save.sel, dino.x, GROUND - 24, { duck: true, leg, dead: over, t, gear });
-      else drawChar(ctx, save.sel, dino.x, dino.y, { leg, dead: over, t, gear });
+    const stunned = hitStopT > 0;   // 맞은 직후엔 멈춘 채 X눈
+    if (stunned || !(inv > 0 && Math.floor(inv / 5) % 2)) {
+      if (dino.ducking) drawChar(ctx, save.sel, dino.x, GROUND - 24, { duck: true, leg, dead: over || stunned, t, gear });
+      else drawChar(ctx, save.sel, dino.x, dino.y, { leg, dead: over || stunned, t, gear });
     }
     // 스킬 이펙트 (캐릭터 앞)
     if (shieldT > 0 && dashT <= 0 && fireT <= 0 && flyT <= 0) {
@@ -1336,7 +1365,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
         ctx.fillStyle = '#ff1744'; ctx.fillRect(bx + 1, by2 + 1, 2, 2); ctx.fillRect(bx + 4, by2 + 1, 2, 2);
       }
     }
-    if (healFx > 0) { ctx.fillStyle = '#ff4081'; for (let i = 0; i < 5; i++) { ctx.globalAlpha = clamp(healFx / 30, 0, 1); heart(ctx, dino.x + 6 + i * 8, dino.y - (50 - healFx) * 1.2 - i * 7, 2); } ctx.globalAlpha = 1; }
+    if (healFx > 0) { for (let i = 0; i < 5; i++) { ctx.globalAlpha = clamp(healFx / 30, 0, 1); shieldIcon(ctx, dino.x + 8 + i * 8, dino.y - (50 - healFx) * 1.2 - i * 7, '#4fc3f7'); } ctx.globalAlpha = 1; }
     if (slowT > 0) {   // 시간 정지
       ctx.fillStyle = 'rgba(120,70,210,0.18)'; ctx.fillRect(0, 0, W, H);
       ctx.strokeStyle = 'rgba(206,147,216,0.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pcx, pcy, 40 + (frame * 2) % 60, 0, Math.PI * 2); ctx.stroke();
@@ -1349,10 +1378,12 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'left';
     ctx.fillText(String(save.gold), hx0 + 20, hy0);
     if (stIdx > 0) { ctx.fillStyle = STAGES[stIdx].ac; ctx.fillText(STAGES[stIdx].name, hx0 + 100, hy0); ctx.fillStyle = FG; }
-    for (let i = 0; i < maxLives; i++) {   // 목숨(하트)
-      ctx.fillStyle = i < lives ? '#ff1744' : 'rgba(128,128,128,0.35)'; heart(ctx, hx0 + 6 + i * 14, hy0 + 22, 2);
+    for (let i = 0; i < maxLives; i++) {   // 방어력(방패)
+      const justLost = i === lives && hurtFx > 0 && Math.floor(hurtFx / 4) % 2 === 0;
+      shieldIcon(ctx, hx0 + 6 + i * 14, hy0 + 22, i < lives ? '#4fc3f7' : (justLost ? '#ff1744' : 'rgba(128,128,128,0.35)'));
     }
-    ctx.fillStyle = FG; ctx.font = 'bold 13px "Courier New", monospace';
+    ctx.fillStyle = FG; ctx.font = 'bold 11px "Courier New", monospace'; ctx.fillText('방어력 ' + lives + '/' + maxLives, hx0 + 6 + maxLives * 14 + 4, hy0 + 26);
+    ctx.font = 'bold 13px "Courier New", monospace';
     ctx.fillText(pad(Math.floor(score)), hx0, hy0 + 46);
     ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), hx0 + 56, hy0 + 46); ctx.globalAlpha = 1;
     let by = hy0 + 58;
@@ -1374,7 +1405,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, GROUND - 78);
       ctx.font = '12px "Courier New", monospace'; ctx.globalAlpha = 0.75;
       ctx.fillText('탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기', W / 2, GROUND - 56);
-      if (skillOf()) ctx.fillText('스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 38);
+      if (skillOf()) ctx.fillText('왼쪽 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 38);
       ctx.globalAlpha = 1;
     }
     if (over) {
@@ -1384,6 +1415,12 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       ctx.fillText('획득 골드 +' + runGold, W / 2, GROUND - 72);
       ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 50);
     }
+    if (hurtFx > 0) {   // 피격: 붉은 화면 + 방어력 -1 표시
+      ctx.fillStyle = 'rgba(255,40,40,' + Math.min(0.34, hurtFx / 38 * 0.34) + ')'; ctx.fillRect(-20, -20, W + 40, H + 40);
+      if (hitStopT > 0) { ctx.fillStyle = '#ff1744'; ctx.font = 'bold 22px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('-1', dino.x + 22, dino.y - 10 - (38 - hitStopT) * 0.35); }
+    }
+    if (restartT > 0 && hitStopT <= 0) { ctx.globalAlpha = clamp(restartT / 20, 0, 1); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 20px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('GO!', dino.x + 80, dino.y - 6); ctx.globalAlpha = 1; }
+    ctx.restore();
     FG = TFG; BG = TBG;
   }
 
@@ -1392,7 +1429,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     const dt = ts - last; last = ts;
     dtS += (Math.min(dt, 50) - dtS) * 0.15;
     const k = Math.min(dtS / 16.667, 3);
-    if (running && !shopOpen) update(slowT > 0 ? k * 0.4 : k, k);   // 시간 정지 중에는 게임 속도 40%
+    if (hitStopT > 0) { hitStopT -= k; if (hitStopT <= 0) restartT = 30; }   // 피격: 게임이 잠깐 멈춤
+    else if (running && !shopOpen) update(slowT > 0 ? k * 0.4 : k, k);   // 시간 정지 중에는 게임 속도 40%
+    if (shakeT > 0) shakeT -= k;
+    if (hurtFx > 0) hurtFx -= k;
     if (stT < 1) stT = Math.min(1, stT + 0.02 * k);
     if (over && dino.falling && dino.y < H + 80) { dino.fallV += 0.6 * k; dino.y += dino.fallV * k; }
     draw();
