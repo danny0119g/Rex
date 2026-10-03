@@ -50,6 +50,11 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 .vsrow b { min-width: 74px; text-align: right; }
 .vsmeta { font-size: 10px; color: var(--muted); margin: 0 0 0 6px; }
 .vsres { margin-top: 6px; font-size: 12px; text-align: center; color: #e09a00; font-weight: bold; }
+#skInfo { position: sticky; bottom: 0; z-index: 3; margin: 10px -14px -14px; padding: 9px 14px 10px; background: var(--bg); border-top: 2px solid var(--btn); border-radius: 0 0 16px 16px; font-size: 12px; line-height: 1.55; box-shadow: 0 -6px 12px rgba(0,0,0,.12); }
+#skInfo .skn { color: #e09a00; font-weight: bold; }
+#skInfo small { color: var(--muted); }
+.card { cursor: pointer; }
+.card.info { outline: 2px dashed rgba(245,179,1,.9); outline-offset: 1px; }
 .card.sel { border-color: #f5b301 !important; }
 .card.r3 { box-shadow: 0 0 10px rgba(255,152,0,.35); }
 .card.r4 { animation: mythic 2s ease-in-out infinite; }
@@ -89,6 +94,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     <div class="shop-top"><b><span id="shopWho">P1</span> 🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
     <div id="vsBox"></div>
     <div id="charGrid"></div>
+    <div id="skInfo"></div>
   </div>
   <div class="confirm" id="confirm" hidden>
     <div class="box">
@@ -100,7 +106,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-12';
+  const VERSION = '20261003-13';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -597,7 +603,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   // ---------- 구간(스테이지) ----------
   const STAGES = [
     { id: 'desert', at: 0,     name: '사막',   fg: null,      bg: null,      ac: '#e0a800' },
-    { id: 'sky',    at: 4000,  name: '하늘성', fg: '#f4faff', bg: '#5f9bcc', ac: '#ffb74d' },
+    { id: 'sky',    at: 4000,  name: '하늘성', fg: '#f4faff', bg: '#2b5f8c', ac: '#ffb74d' },
     { id: 'space',  at: 8000,  name: '우주',   fg: '#cfd8ff', bg: '#070a1c', ac: '#80deea' },
     { id: 'hell',   at: 16000,  name: '지옥',   fg: '#ffd9c7', bg: '#1c0606', ac: '#ff5722' },
     { id: 'heaven', at: 32000, name: '천국',   fg: '#7a5a00', bg: '#fff6dc', ac: '#b8860b' },
@@ -616,6 +622,19 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
   // ---------- 게임 상태 ----------
   const LEAD = 420;   // 장애물은 화면 오른쪽 밖 이만큼 더 멀리에서 미리 생성됨 (경고 표시·미리 로드용)
+  // 장애물 사이 간격(시간): 한 장애물을 넘고 착지한 뒤 다음 장애물의 점프를 누를 수 있는 최소 시간 + 여유(slack).
+  // 여유는 시간이 갈수록 줄어서, 착지하자마자 바로 다음 점프를 해야 하는 연속 구간이 늘어남 (최소 시간 이하로는 만들지 않아 불가능한 배치는 없음)
+  const AFTER = { cactus: SIM1.length - AP1, spike: SIM1.length - AP1, pit: SIM1.length - AP1, cactusT: SIM2.length - AP2, birdM: 6, birdH: 6 };   // 중심 통과 후 다시 행동할 수 있을 때까지(프레임)
+  const LEADF = { cactus: AP1, spike: AP1, pit: AP1, cactusT: AP2, birdM: 14, birdH: 8 };                                                           // 행동을 시작해야 하는 시점 ~ 중심까지(프레임)
+  function nextDelta(kA, kB) {   // 두 장애물 중심 사이의 시간(프레임)
+    const tol = tolAt(speedAt(score), score);
+    const p = clamp((score / SCALE - 300) / 4500, 0, 1);   // 0 → 1: 점수 약 600 → 9,600
+    let slack = (10 - 9 * p) + Math.random() * (20 - 15 * p);
+    const r = Math.random();
+    if (r < 0.3 * p) slack = Math.random() * 2;              // 연속 점프: 착지하자마자 바로 다음 장애물
+    else if (r > 0.9) slack += 20 + Math.random() * 15;      // 가끔은 숨 돌릴 틈
+    return AFTER[kA] + LEADF[kB] + 2 * tol + 2 + slack;
+  }
   const GAP = { cactus: 46, spike: 46, cactusT: 95, birdM: 55, birdH: 50, pit: 60 };
   const DUCK_T = 48;   // 스와이프 한 번으로 숙이는 시간(프레임) ≈ 0.8초
   const OVER_LOCK = 1100;   // 게임 오버 화면 잠금 시간(ms)
@@ -658,7 +677,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function layout() {
     const vw = Math.max(320, window.innerWidth || 700, (document.documentElement && document.documentElement.clientWidth) || 0), vh = Math.max(200, window.innerHeight || 260);
     const land = vw / vh >= 1.45, oldG = GROUND;
-    W = land ? 860 : 650; DX = land ? 150 : 76;   // 논리 폭을 넓혀 화면을 줄임(줌 아웃)
+    W = land ? 860 : 650; DX = land ? 164 : 84;   // 논리 폭을 넓혀 화면을 줄임(줌 아웃)
     W = Math.max(W, Math.min(1400, Math.ceil(vw / 1.5)));   // 배율이 1.5배를 넘지 않게 하면서도 화면 오른쪽 끝까지 꽉 채움
     SC = Math.min(vw / W, 1.5);
     HS = clamp(0.98 / SC, 1, 1.7);   // 축소 배율이 낮은 세로 화면에서는 HUD 글자를 키워 읽기 쉽게
@@ -835,11 +854,21 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (sel) { label = '사용 중'; dis = true; }
     else if (owned) label = '선택';
     else { label = '🪙 ' + fmt(c.cost); dis = save.gold < c.cost; }
-    return '<div class="card r' + c.rar + (sel ? ' sel' : '') + '" style="--rc:' + R.color + '"><canvas width="100" height="72" data-i="' + i + '"></canvas>' +
+    return '<div class="card r' + c.rar + (sel ? ' sel' : '') + '" data-c="' + i + '" style="--rc:' + R.color + '"><canvas width="100" height="72" data-i="' + i + '"></canvas>' +
       '<div class="nm">' + c.name + '<span class="badge" style="background:' + R.color + '">' + R.name + '</span></div>' +
       '<div class="pr">' + (c.cost ? '🪙 ' + fmt(c.cost) : '무료') + ' · 🛡 방어력 ' + LIVES[c.rar] + '</div>' +
       (c.skill ? '<div class="sk">' + SKILLS[c.skill].icon + ' ' + SKILLS[c.skill].name + '</div>' : '') +
       '<button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
+  }
+  let infoIdx = -1;
+  function showInfo() {   // 스킨을 누르면 아래에 스킬 설명이 나옴
+    const box = document.getElementById('skInfo');
+    if (infoIdx < 0 || !CHARS[infoIdx]) { box.innerHTML = '<small>스킨을 누르면 스킬 설명이 나와요</small>'; return; }
+    const c = CHARS[infoIdx], R = RARITY[c.rar], sk = c.skill ? SKILLS[c.skill] : null;
+    box.innerHTML = '<b style="color:' + R.color + '">' + c.name + '</b> <span class="badge" style="background:' + R.color + '">' + R.name + '</span> · 🛡 방어력 ' + LIVES[c.rar] + (infoIdx === save.sel ? ' · 사용 중' : '') + '<br>' +
+      (sk ? '<span class="skn">' + sk.icon + ' ' + sk.name + '</span> — ' + sk.desc + '<br><small>쿨타임 ' + Math.round(sk.cd / 60) + '초 · 왼쪽 아래 스킬 버튼 또는 S키로 사용</small>'
+          : '<small>스킬 없음 — 전설·신화 등급 스킨만 스킬을 쓸 수 있어요</small>');
+    grid.querySelectorAll('.card').forEach(el => el.classList.toggle('info', +el.dataset.c === infoIdx));
   }
   function renderShop() {
     document.getElementById('goldTotal').textContent = fmt(save.gold);
@@ -854,6 +883,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     });
     grid.innerHTML = html;
     previews = Array.prototype.map.call(grid.querySelectorAll('canvas'), cn => ({ c: cn.getContext('2d'), i: +cn.dataset.i }));
+    showInfo();
   }
   function drawPreviews(tt) {
     previews.forEach(p => {
@@ -880,7 +910,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (i < 0 || isOwned(i) || save.gold < CHARS[i].cost) return;
     save.gold -= CHARS[i].cost; save.owned.push(i); save.sel = i; persist(); renderShop();
   });
-  function openShop() { shopOpen = true; running = false; duckT = 0; touching = false; shop.hidden = false; closeConfirm(); renderShop(); }
+  function openShop() { infoIdx = save.sel; shopOpen = true; running = false; duckT = 0; touching = false; shop.hidden = false; closeConfirm(); renderShop(); }
   function closeShop() {
     shopOpen = false; shop.hidden = true; previews = []; closeConfirm();
     if (!running && !over) { maxLives = livesOf(); lives = maxLives; }   // 바꾼 캐릭터의 방어력 반영
@@ -891,6 +921,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   document.getElementById('shopClose').addEventListener('click', closeShop);
   shop.addEventListener('click', e => { if (e.target === shop) closeShop(); });
   grid.addEventListener('click', e => {
+    const card = e.target.closest('.card');
+    if (card && card.dataset.c !== undefined) { infoIdx = +card.dataset.c; showInfo(); }   // 카드 어디를 눌러도 스킬 설명 표시
     const b = e.target.closest('button[data-i]'); if (!b || b.disabled) return;
     const i = +b.dataset.i;
     if (isOwned(i)) { save.sel = i; persist(); renderShop(); }
@@ -920,21 +952,30 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     for (const a of list) { r -= a[1]; if (r <= 0) return a[0]; }
     return list[0][0];
   }
-  function gapFrames(kind, o, next) {   // 앞 장애물을 처리할 시간을 확보. 빨라질수록(후반) 간격은 더 좁아짐
-    let gap = GAP[kind] + (kind === 'pit' ? o.w / speed : 0) + (next === 'cactusT' ? 10 : 0) + 8 + Math.random() * 28;
-    return gap * clamp(1.1 - 0.15 * progressOf(speed) - 0.2 * clamp((score / SCALE - 2125) / 14000, 0, 1), 0.8, 1.1);
-  }
-  function prefill() {   // 화면 오른쪽 끝까지 장애물·코인을 미리 깔아둠 (게임 시작 때 트랙이 비어 있다가 늦게 나오는 문제 방지)
-    obstacles = []; coins = [];
-    let x = Math.min(W - 120, dino.x + 440), kind = pickKind(null);
-    while (x < W + 30 + LEAD) {
-      const o = makeObstacle(kind, x); o.st = stIdx;
-      obstacles.push(o); spawnCoins(o);
-      const next = pickKind(kind);
-      x += gapFrames(kind, o, next) * speed;
-      kind = next;
+  function genNext() {   // 맨 뒤 장애물 다음에 새 장애물 하나를 만든다 (중심 사이 간격 = 시간(프레임) × 도착 속도)
+    const last = obstacles[obstacles.length - 1];
+    const kA = last ? last.kind : null, cA = last ? last.x + last.w / 2 : (frame < 5 ? dino.x + 21 + 400 : W + 130);
+    const kind = nextKind || pickKind(kA);
+    const o = makeObstacle(kind, cA + 220);   // 폭을 알기 위해 임시 위치에 만든 뒤 중심을 맞춤
+    o.st = stIdx;   // 생성될 때의 구간 테마로 그려짐
+    let d = 0, cB = cA;
+    if (last) {
+      d = nextDelta(kA, kind);
+      if (itemIn < -300) d += 30;   // 아이템이 오래 못 나왔으면 숨 돌릴 틈을 만들어 아이템을 놓음
+      cB = cA + Math.max(d * arrivalSpeed(cA + d * speed), (last.w + o.w) / 2 + 40);
     }
-    nextKind = kind; spawnIn = Math.max(1, (x - (W + 30 + LEAD)) / speed);   // 다음 장애물이 화면 밖 오른쪽 끝에 닿을 때 이어서 생성
+    o.x = cB - o.w / 2; o.delta = d;
+    obstacles.push(o); spawnCoins(o);
+    nextKind = pickKind(kind);
+    if (last) {
+      const mid = (cA + cB) / 2;
+      if (itemIn <= 0 && d >= 66) { items.push({ type: Math.random() < 0.5 ? 'magnet' : 'x2', x: mid, y: GROUND - 26, ph: Math.random() * 40 }); itemIn = rnd(900, 1500); }
+      else if (d >= 100) for (let i = 0; i < 3; i++) addCoin(mid - 28 + i * 28, GROUND - 20);
+    }
+  }
+  function prefill() {   // 화면 오른쪽 밖까지 장애물·코인을 미리 깔아둠 (게임 시작 때 트랙이 비어 있다가 늦게 나오는 문제 방지)
+    obstacles = []; coins = []; items = []; nextKind = null;
+    for (let g = 0; g < 16; g++) { genNext(); const l = obstacles[obstacles.length - 1]; if (l.x + l.w / 2 >= W + 30 + LEAD) break; }
   }
   function makeObstacle(kind, xPos) {
     const x = xPos === undefined ? W + 30 : xPos;
@@ -957,7 +998,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       const b0 = kind === 'birdH' ? 104 : 28;
       return { kind, type: 'bird', x, y: GROUND - b0 - 36, w: 32, h: 36 };
     }
-    const sa = arrivalSpeed(x + 60), tol = tolAt(sa, score) * (1 + Math.random());
+    const sa = arrivalSpeed(x + 60), tol = tolAt(sa, score) * (1 + Math.random()) + 0.4;   // 구덩이는 허용 오차를 아주 조금 더 줌
     const w = clamp(Math.round(20 + sa * (SIM1.length - 2 * tol)), 70, 780);   // 구덩이도 같은 오차 기준
     return { kind: 'pit', type: 'pit', x, y: GROUND, w, h: 0 };
   }
@@ -1042,28 +1083,12 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (ns !== stIdx) { stPrev = stIdx; stIdx = ns; stT = 0; bannerT = 150; }
     if (bannerT > 0) bannerT -= k;
 
-    spawnIn -= k * dm * rm;
-    if (spawnIn <= 0) {
-      const kind = nextKind || pickKind(null);
-      const o = makeObstacle(kind, W + 30 + LEAD);
-      o.st = stIdx;   // 생성될 때의 구간 테마로 그려짐
-      obstacles.push(o); spawnCoins(o);
-      nextKind = pickKind(kind);
-      // 앞 장애물을 처리할 시간을 확보. 빨라질수록(후반) 간격은 더 좁아짐
-      const gap = gapFrames(kind, o, nextKind);
-      spawnIn = gap;
-      let placed = false;
-      if (itemIn <= 0 && gap >= 70) {   // 장애물 사이 빈 구간 한가운데에 아이템
-        items.push({ type: Math.random() < 0.5 ? 'magnet' : 'x2', x: W + 30 + LEAD + gap * speed * 0.5, y: GROUND - 26, ph: Math.random() * 40 });
-        itemIn = rnd(900, 1500); placed = true;
-      }
-      if (!placed && gap > 100) { const cx = W + 30 + LEAD + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
-    }
     obstacles.forEach(o => o.x -= sp * k);
     coins.forEach(c => c.x -= sp * k);
     items.forEach(it => it.x -= sp * k);
     itemIn -= k;
     if (fireT > 0) obstacles = obstacles.filter(o => { if (o.x < dino.x + 450 && o.x + o.w > dino.x) { burst(o); return false; } return true; });   // 용의 숨결: 앞을 모두 태움
+    for (let g = 0; g < 8; g++) { const l = obstacles[obstacles.length - 1]; if (l && l.x + l.w / 2 >= W + 30 + LEAD) break; genNext(); }   // 앞쪽 트랙을 계속 이어서 만듦
     obstacles = obstacles.filter(o => o.x + Math.max(o.w, (ceilRect(o) || { w: 0 }).w) > -30);
     clouds.forEach(c => { c.x -= speed * 0.2 * k; if (c.x < -50) { c.x = W + 20; c.y = 20 + Math.random() * Math.max(60, GROUND - 130); } });
 
@@ -1212,9 +1237,9 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       ctx.fillStyle = FG; ctx.fillRect(px, GROUND, 2, ph); ctx.fillRect(px + w - 2, GROUND, 2, ph);
       ctx.globalAlpha = 0.12; ctx.fillRect(px + 2, GROUND + 2, w - 4, ph); ctx.globalAlpha = 1;
     } else if (st === 1) {
-      const g = ctx.createLinearGradient(0, GROUND, 0, H); g.addColorStop(0, '#3f7fb2'); g.addColorStop(1, '#8fb5d2');
+      const g = ctx.createLinearGradient(0, GROUND, 0, H); g.addColorStop(0, '#1d4a74'); g.addColorStop(1, '#46698a');
       ctx.fillStyle = g; ctx.fillRect(px, GROUND, w, ph);
-      ctx.fillStyle = 'rgba(222,233,246,0.8)'; for (let j = 0; j < w / 40; j++) { ctx.beginPath(); ctx.ellipse(px + 20 + j * 40, H - 4, 22, 9, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(180,202,228,0.45)'; for (let j = 0; j < w / 40; j++) { ctx.beginPath(); ctx.ellipse(px + 20 + j * 40, H - 4, 22, 9, 0, 0, Math.PI * 2); ctx.fill(); }
       ctx.fillStyle = '#1b2547'; ctx.fillRect(px, GROUND, 3, ph); ctx.fillRect(px + w - 3, GROUND, 3, ph);
     } else if (st === 2) {
       ctx.fillStyle = '#03030c'; ctx.fillRect(px, GROUND, w, ph);
@@ -1289,15 +1314,15 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   function drawSkyBg(a) {   // 하늘성
     ctx.globalAlpha = a;
-    const g = ctx.createLinearGradient(0, 0, 0, GROUND); g.addColorStop(0, '#2a74b8'); g.addColorStop(0.65, '#5f9bcc'); g.addColorStop(1, '#a9c3d8');
+    const g = ctx.createLinearGradient(0, 0, 0, GROUND); g.addColorStop(0, '#12304f'); g.addColorStop(0.65, '#2b5f8c'); g.addColorStop(1, '#587a96');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, GROUND);
-    const sx0 = W - 130, sg = ctx.createRadialGradient(sx0, 56, 4, sx0, 56, 90); sg.addColorStop(0, 'rgba(255,255,255,0.5)'); sg.addColorStop(0.3, 'rgba(255,236,170,0.24)'); sg.addColorStop(1, 'rgba(255,236,170,0)');
+    const sx0 = W - 130, sg = ctx.createRadialGradient(sx0, 56, 4, sx0, 56, 90); sg.addColorStop(0, 'rgba(255,255,255,0.26)'); sg.addColorStop(0.3, 'rgba(255,236,170,0.11)'); sg.addColorStop(1, 'rgba(255,236,170,0)');
     ctx.fillStyle = sg; ctx.fillRect(sx0 - 100, 0, 230, 160);
-    ctx.fillStyle = 'rgba(176,200,226,0.34)';
+    ctx.fillStyle = 'rgba(140,172,210,0.24)';
     for (let i = 0; i < 3; i++) castle(wrap(i * 330 - gscroll * 0.06, W + 330) - 120, 0.9 + (i % 2) * 0.25);
-    ctx.fillStyle = 'rgba(222,233,246,0.62)';
+    ctx.fillStyle = 'rgba(180,202,228,0.34)';
     clouds.forEach(c => cloudShape(Math.round(c.x), Math.round(c.y), 1.1));
-    ctx.fillStyle = '#566676'; ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = '#334255'; ctx.fillRect(0, GROUND, W, H - GROUND);
     ctx.globalAlpha = 1;
   }
   function nebula(x, y, r, col) {
