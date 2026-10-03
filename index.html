@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>공룡 점프 게임</title>
+<style>
+:root {
+  --bg: #f7f7f7; --fg: #535353; --muted: #8a8a8a; --btn: #e4e4e4;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #202124; --fg: #d4d4d4; --muted: #8a8a8a; --btn: #35363a; }
+}
+:root[data-theme="dark"] { --bg: #202124; --fg: #d4d4d4; --muted: #8a8a8a; --btn: #35363a; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+html, body { margin: 0; height: 100%; touch-action: none; overscroll-behavior: none; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: "Courier New", ui-monospace, monospace;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  user-select: none; -webkit-user-select: none; touch-action: none; overscroll-behavior: none;
+}
+.wrap { width: 100%; max-width: 760px; padding: 12px; box-sizing: border-box; }
+h1 { font-size: 16px; margin: 0 0 8px; letter-spacing: 1px; color: var(--muted); font-weight: normal; }
+canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; }
+.hint { margin-top: 10px; font-size: 12px; color: var(--muted); text-align: center; }
+.duck {
+  margin: 14px auto 0; display: block; width: 100%; max-width: 320px; padding: 18px;
+  background: var(--btn); color: var(--fg); border: 0; border-radius: 12px;
+  font: inherit; font-size: 16px; touch-action: none;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DINO RUN</h1>
+  <canvas id="c" width="700" height="200"></canvas>
+  <div class="hint">화면 탭 = 점프 · 아래로 스와이프 = 숙이기<br>키보드: Space/↑ 점프, ↓ 숙이기</div>
+</div>
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, GROUND = 168;
+
+  const css = () => getComputedStyle(document.documentElement);
+  let FG = '#535353', BG = '#f7f7f7';
+  const readColors = () => { FG = css().getPropertyValue('--fg').trim(); BG = css().getPropertyValue('--bg').trim(); };
+  readColors();
+  matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', readColors);
+
+  // 도트 공룡
+  const BODY = [
+    "............########",
+    "............########",
+    "............##.#####",
+    "............########",
+    "............########",
+    "............#####...",
+    "............#######.",
+    "#..........#####....",
+    "#.........######....",
+    "##.......#######.#..",
+    "###.....########.#..",
+    "################.#..",
+    "################.#..",
+    ".#############......",
+    "..###########.......",
+    "...##########.......",
+  ];
+  const LEGS = [
+    ["....####.####......","....###..#.........","....##...###.......","....###............"],
+    ["....####.####......","....#....###.......","....###..##........","...........###....."],
+  ];
+  const S = 2; // 픽셀 배율
+  function drawRows(rows, x, y) {
+    x = Math.round(x); y = Math.round(y);
+    for (let r = 0; r < rows.length; r++) {
+      const row = rows[r].padEnd(20, '.');
+      for (let col = 0; col < row.length; col++) {
+        if (row[col] === '#') ctx.fillRect(x + col * S, y + r * S, S, S);
+      }
+    }
+  }
+
+  let hi = 0;
+  try { hi = parseInt(localStorage.getItem('dino-hi') || '0', 10) || 0; } catch (e) {}
+
+  let gscroll = 0, dtS = 16.667, state, dino, obstacles, clouds, speed, score, frame, spawnIn, last, running = false, over = false, duckHeld = false;
+
+  function reset() {
+    dino = { x: 40, y: GROUND - 40, vy: 0, onGround: true, ducking: false };
+    obstacles = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }];
+    speed = 5.5; score = 0; frame = 0; spawnIn = 60; over = false;
+  }
+  reset();
+
+  function jump() {
+    if (over) { if (performance.now() - overAt > 300) { reset(); running = true; } return; }
+    if (!running) { running = true; }
+    if (dino.onGround) { dino.vy = -10.5; dino.y += dino.vy; dino.onGround = false; draw(); }
+  }
+  let overAt = 0;
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
+    if (e.code === 'ArrowDown') { e.preventDefault(); duckHeld = true; }
+  });
+  addEventListener('keyup', e => { if (e.code === 'ArrowDown') duckHeld = false; });
+  // 입력: 탭 = 즉시 점프, 아래로 스와이프 = 숙이기
+  let touching = false, sy = 0, touchJumped = false, touchJumpAt = 0;
+  const SW = 14;
+  function pStart(y) {
+    touching = true; sy = y; touchJumped = false;
+    const before = dino.onGround;
+    jump();
+    if (before && !dino.onGround) { touchJumped = true; touchJumpAt = performance.now(); }
+  }
+  function pMove(y) {
+    if (!touching) return;
+    const dy = y - sy;
+    if (dy > SW) {
+      // 스와이프 의도였다면 방금 시작된 점프를 취소하고 바로 숙이기
+      if (touchJumped && performance.now() - touchJumpAt < 300) {
+        dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; touchJumped = false;
+      }
+      duckHeld = true;
+    } else if (dy < 4 && duckHeld) { duckHeld = false; }
+  }
+  function pEnd() { touching = false; duckHeld = false; }
+  addEventListener('touchstart', e => { e.preventDefault(); pStart(e.touches[0].clientY); }, { passive: false });
+  addEventListener('touchmove', e => { e.preventDefault(); pMove(e.touches[0].clientY); }, { passive: false });
+  addEventListener('touchend', pEnd);
+  addEventListener('touchcancel', pEnd);
+  addEventListener('mousedown', e => pStart(e.clientY));
+  addEventListener('mousemove', e => pMove(e.clientY));
+  addEventListener('mouseup', pEnd);
+  addEventListener('contextmenu', e => e.preventDefault());
+
+  function spawn() {
+    const roll = Math.random();
+    if (score > 300 && roll < 0.28) {
+      const ys = [GROUND - 60, GROUND - 38, GROUND - 22];
+      obstacles.push({ type: 'bird', x: W + 20, y: ys[Math.floor(Math.random() * 3)], w: 36, h: 24 });
+    } else {
+      const n = 1 + Math.floor(Math.random() * 3);
+      const h = 30 + Math.floor(Math.random() * 20);
+      obstacles.push({ type: 'cactus', x: W + 20, y: GROUND - h, w: 14 * n + 4 * (n - 1), h, n });
+    }
+    const gap = 50 + Math.random() * 60 + speed * 8;
+    spawnIn = gap / speed * 2.2;
+  }
+
+  function hit(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  }
+
+  function update(k) {
+    frame += k;
+    dino.ducking = duckHeld && dino.onGround;
+    if (!dino.onGround) {
+      dino.vy += (duckHeld ? 1.4 : 0.6) * k;
+      dino.y += dino.vy * k;
+      if (dino.y >= GROUND - 40) { dino.y = GROUND - 40; dino.vy = 0; dino.onGround = true; }
+    }
+    score += speed * 0.12 * k;
+    gscroll += speed * k;
+    speed = Math.min(14, 5.5 + score / 250);
+
+    spawnIn -= k; if (spawnIn <= 0) spawn();
+    obstacles.forEach(o => o.x -= speed * k);
+    obstacles = obstacles.filter(o => o.x + o.w > -10);
+    clouds.forEach(c => { c.x -= speed * 0.2 * k; if (c.x < -50) { c.x = W + 20; c.y = 25 + Math.random() * 60; } });
+
+    const box = dino.ducking
+      ? { x: dino.x + 4, y: GROUND - 22, w: 50, h: 20 }
+      : { x: dino.x + 8, y: dino.y + 4, w: 26, h: 34 };
+    for (const o of obstacles) {
+      const ob = { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
+      if (hit(box, ob)) {
+        over = true; running = false; overAt = performance.now();
+        const s = Math.floor(score);
+        if (s > hi) { hi = s; try { localStorage.setItem('dino-hi', String(hi)); } catch (e) {} }
+        break;
+      }
+    }
+  }
+
+  function drawDino() {
+    ctx.fillStyle = FG;
+    if (dino.ducking) {
+      const x = dino.x, y = GROUND - 24;
+      ctx.fillRect(x, y + 4, 40, 14);      // 몸통
+      ctx.fillRect(x + 32, y, 22, 12);     // 머리
+      ctx.fillRect(x + 50, y + 8, 6, 4);   // 입
+      ctx.fillRect(x - 6, y + 6, 8, 6);    // 꼬리
+      ctx.fillStyle = BG; ctx.fillRect(x + 44, y + 2, 3, 3);
+      ctx.fillStyle = FG;
+      const f = Math.floor(frame / 5) % 2;
+      ctx.fillRect(x + 8, y + 18, 5, f ? 6 : 3);
+      ctx.fillRect(x + 24, y + 18, 5, f ? 3 : 6);
+    } else {
+      drawRows(BODY, dino.x, dino.y);
+      const legs = dino.onGround && running ? LEGS[Math.floor(frame / 5) % 2] : LEGS[0];
+      drawRows(legs, dino.x, dino.y + BODY.length * S);
+      if (over) { ctx.fillStyle = BG; ctx.fillRect(dino.x + 32, dino.y + 4, 4, 4); }
+      else { ctx.fillStyle = BG; ctx.fillRect(dino.x + 30, dino.y + 4, 3, 3); }
+    }
+  }
+
+  function drawCactus(o) {
+    ctx.fillStyle = FG;
+    for (let i = 0; i < o.n; i++) {
+      const x = o.x + i * 18, h = o.h;
+      ctx.fillRect(x + 5, o.y, 5, h);                 // 줄기
+      ctx.fillRect(x, o.y + Math.round(h * 0.35), 5, 4);          // 왼팔
+      ctx.fillRect(x, o.y + Math.round(h * 0.2), 3, Math.round(h * 0.2));
+      ctx.fillRect(x + 10, o.y + Math.round(h * 0.5), 5, 4);      // 오른팔
+      ctx.fillRect(x + 12, o.y + Math.round(h * 0.3), 3, Math.round(h * 0.25));
+    }
+  }
+  function drawBird(o) {
+    ctx.fillStyle = FG;
+    ctx.fillRect(o.x + 6, o.y + 9, 22, 7);            // 몸통
+    ctx.fillRect(o.x, o.y + 11, 8, 3);                // 부리
+    ctx.fillRect(o.x + 26, o.y + 11, 8, 3);           // 꼬리
+    const up = Math.floor(frame / 8) % 2;
+    if (up) { ctx.fillRect(o.x + 12, o.y, 6, 10); ctx.fillRect(o.x + 16, o.y - 2, 6, 4); }
+    else { ctx.fillRect(o.x + 12, o.y + 16, 6, 8); ctx.fillRect(o.x + 16, o.y + 20, 6, 4); }
+  }
+
+  function draw() {
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+    // 구름
+    ctx.fillStyle = FG; ctx.globalAlpha = 0.18;
+    clouds.forEach(c => { const cx = Math.round(c.x), cy = Math.round(c.y); ctx.fillRect(cx, cy, 40, 8); ctx.fillRect(cx + 8, cy - 6, 22, 8); });
+    ctx.globalAlpha = 1;
+    // 땅
+    ctx.fillStyle = FG; ctx.fillRect(0, GROUND, W, 2);
+    for (let i = 0; i < 18; i++) {
+      const gx = Math.round((((i * 83 - gscroll) % (W + 40)) + (W + 40)) % (W + 40) - 20);
+      ctx.fillRect(gx, GROUND + 8 + (i % 3) * 5, 3 + (i % 4) * 3, 2);
+    }
+    obstacles.forEach(o => { const r = Object.assign({}, o, { x: Math.round(o.x) }); o.type === 'bird' ? drawBird(r) : drawCactus(r); });
+    drawDino();
+    // 점수
+    ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'right';
+    const pad = n => String(n).padStart(5, '0');
+    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(hi), W - 120, 24); ctx.globalAlpha = 1;
+    ctx.fillText(pad(Math.floor(score)), W - 16, 24);
+    ctx.textAlign = 'center';
+    if (!running && !over) { ctx.fillText('탭 또는 SPACE로 시작', W / 2, 90); }
+    if (over) {
+      ctx.font = 'bold 22px "Courier New", monospace';
+      ctx.fillText('G A M E   O V E R', W / 2, 80);
+      ctx.font = '14px "Courier New", monospace';
+      ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, 108);
+    }
+  }
+
+  function loop(t) {
+    if (!last) last = t;
+    const dt = t - last;
+    last = t; dtS += (Math.min(dt, 50) - dtS) * 0.15;
+    if (running) update(Math.min(dtS / 16.667, 3));
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
