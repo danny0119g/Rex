@@ -20,7 +20,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 .ibtn.p0 { background: rgba(30,136,229,.82); } .ibtn.p1 { background: rgba(229,57,53,.82); }
 .ibtn.on { outline: 2px solid #ff5252; }
 .ver { position: fixed; z-index: 2; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 10px; color: #888; opacity: .5; pointer-events: none; }
-#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(54px + env(safe-area-inset-bottom, 0px)); width: 108px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 108px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
 #skillBtn { position: relative; pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
   background: conic-gradient(#ffc107 var(--p, 100%), rgba(70,70,80,.7) 0); }
 #skillBtn::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: rgba(25,25,35,.86); }
@@ -106,7 +106,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-13';
+  const VERSION = '20261003-14';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -605,8 +605,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     { id: 'desert', at: 0,     name: '사막',   fg: null,      bg: null,      ac: '#e0a800' },
     { id: 'sky',    at: 4000,  name: '하늘성', fg: '#f4faff', bg: '#2b5f8c', ac: '#ffb74d' },
     { id: 'space',  at: 8000,  name: '우주',   fg: '#cfd8ff', bg: '#070a1c', ac: '#80deea' },
-    { id: 'hell',   at: 16000,  name: '지옥',   fg: '#ffd9c7', bg: '#1c0606', ac: '#ff5722' },
-    { id: 'heaven', at: 32000, name: '천국',   fg: '#7a5a00', bg: '#fff6dc', ac: '#b8860b' },
+    { id: 'hell',   at: 12000,  name: '지옥',   fg: '#ffd9c7', bg: '#1c0606', ac: '#ff5722' },
+    { id: 'heaven', at: 16000, name: '천국',   fg: '#7a5a00', bg: '#fff6dc', ac: '#b8860b' },
   ];
   const stageFG = i => STAGES[i].fg || TFG, stageBG = i => STAGES[i].bg || TBG;
   const stageOf = sc => { let k = 0; for (let i = 0; i < STAGES.length; i++) if (sc >= STAGES[i].at) k = i; return k; };
@@ -701,7 +701,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       bar.style.top = 'calc(' + (top + 6) + 'px + env(safe-area-inset-top, 0px))';
       bar.style.right = 'calc(' + (Math.max(0, vw - left - cssW) + 6) + 'px + env(safe-area-inset-right, 0px))';
       sb.style.left = 'calc(' + (left + 10) + 'px + env(safe-area-inset-left, 0px))';
-      sb.style.bottom = 'calc(' + (Math.max(0, vh - top - cssH) + 54) + 'px + env(safe-area-inset-bottom, 0px))';   // 왼쪽 아래에서 조금 위로
+      sb.style.bottom = 'calc(' + (Math.max(0, vh - top - cssH) + 96) + 'px + env(safe-area-inset-bottom, 0px))';   // 왼쪽 아래에서 위로
       sb.style.top = 'auto';
     } catch (e) {}
     if (dino) dino.x = DX;
