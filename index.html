@@ -14,20 +14,22 @@ html, body { margin: 0; height: 100%; overflow: hidden; touch-action: none; over
 body { color: var(--fg); font-family: "Courier New", ui-monospace, monospace; user-select: none; -webkit-user-select: none; }
 [hidden] { display: none !important; }
 canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
-.bar { position: fixed; z-index: 5; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(8px + env(safe-area-inset-right, 0px)); display: flex; gap: 8px; }
-.ibtn { width: 42px; height: 36px; border: 0; border-radius: 10px; background: rgba(128,128,128,.38); color: #fff; font-size: 18px; touch-action: none; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.bar { position: fixed; z-index: 5; top: calc(6px + env(safe-area-inset-top, 0px)); right: calc(6px + env(safe-area-inset-right, 0px)); display: flex; gap: 6px; }
+.ibtn { width: 32px; height: 28px; border: 0; border-radius: 8px; background: rgba(128,128,128,.38); color: #fff; font-size: 14px; touch-action: none; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+#playerBtn { width: 36px; font: bold 12px "Courier New", monospace; }
+.ibtn.p0 { background: rgba(30,136,229,.82); } .ibtn.p1 { background: rgba(229,57,53,.82); }
 .ibtn.on { outline: 2px solid #ff5252; }
 .ver { position: fixed; z-index: 2; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 10px; color: #888; opacity: .5; pointer-events: none; }
-#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); top: 150px; width: 128px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
-#skillBtn { position: relative; pointer-events: auto; width: 62px; height: 62px; border-radius: 50%; border: 3px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
+#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); top: 110px; width: 108px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+#skillBtn { position: relative; pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
   background: conic-gradient(#ffc107 var(--p, 100%), rgba(70,70,80,.7) 0); }
-#skillBtn::before { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: rgba(25,25,35,.86); }
-#skillBtn .ic { position: relative; font-size: 26px; line-height: 1; }
+#skillBtn::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: rgba(25,25,35,.86); }
+#skillBtn .ic { position: relative; font-size: 20px; line-height: 1; }
 #skillBtn.ready { border-color: #ffc107; animation: ready 1.2s ease-in-out infinite; }
 @keyframes ready { 0%,100% { box-shadow: 0 0 6px rgba(255,193,7,.5); } 50% { box-shadow: 0 0 20px rgba(255,193,7,.95); } }
-.skdesc { background: rgba(20,22,32,.66); color: #fff; padding: 6px 8px; border-radius: 8px; font-size: 11px; line-height: 1.4; max-width: 128px; box-sizing: border-box; pointer-events: none; }
-.skdesc b { display: block; font-size: 12px; color: #ffd54f; }
-.skdesc small { display: block; margin-top: 2px; opacity: .8; font-size: 10px; }
+.skdesc { background: rgba(20,22,32,.66); color: #fff; padding: 5px 7px; border-radius: 8px; font-size: 10px; line-height: 1.35; max-width: 108px; box-sizing: border-box; pointer-events: none; }
+.skdesc b { display: block; font-size: 11px; color: #ffd54f; }
+.skdesc small { display: block; margin-top: 2px; opacity: .8; font-size: 9px; }
 #shop { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center;
   padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
 .panel { background: var(--bg); color: var(--fg); border-radius: 16px; width: 100%; max-width: 480px; max-height: 100%;
@@ -36,6 +38,18 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 .shop-top button { background: var(--btn); color: var(--fg); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 14px; }
 #charGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .card { border: 2px solid var(--rc, var(--btn)); border-radius: 12px; padding: 8px 6px; text-align: center; }
+#vsBox { margin-bottom: 12px; }
+.vs { border: 2px solid var(--btn); border-radius: 12px; padding: 8px 10px; font-size: 12px; }
+.vsh { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+.vsrow { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 6px; border-radius: 8px; cursor: pointer; }
+.vsrow.cur { background: rgba(245,179,1,.16); }
+.vsrow .pn { width: 26px; text-align: center; color: #fff; border-radius: 6px; font-weight: bold; font-size: 11px; padding: 2px 0; }
+.vsrow .pn.p0, .vsrow .tr i.p0 { background: #1e88e5; } .vsrow .pn.p1, .vsrow .tr i.p1 { background: #e53935; }
+.vsrow .tr { flex: 1; height: 10px; background: var(--btn); border-radius: 6px; overflow: hidden; }
+.vsrow .tr i { display: block; height: 100%; }
+.vsrow b { min-width: 74px; text-align: right; }
+.vsmeta { font-size: 10px; color: var(--muted); margin: 0 0 0 6px; }
+.vsres { margin-top: 6px; font-size: 12px; text-align: center; color: #e09a00; font-weight: bold; }
 .card.sel { border-color: #f5b301 !important; }
 .card.r3 { box-shadow: 0 0 10px rgba(255,152,0,.35); }
 .card.r4 { animation: mythic 2s ease-in-out infinite; }
@@ -60,7 +74,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 <canvas id="c" width="700" height="260"></canvas>
 <div class="bar" id="bar">
   <button class="ibtn" id="fsBtn" aria-label="전체 화면">⛶</button>
-  <button class="ibtn" id="hardBtn" aria-label="시작 구간 선택">🌵</button>
+  <button class="ibtn p0" id="playerBtn" aria-label="플레이어 전환">P1</button>
   <button class="ibtn" id="shopBtn" aria-label="캐릭터 상점">🛒</button>
   <button class="ibtn" id="theme" aria-label="다크 모드 전환">🌙</button>
 </div>
@@ -72,7 +86,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <div id="shop" hidden>
   <div class="panel">
-    <div class="shop-top"><b>🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
+    <div class="shop-top"><b><span id="shopWho">P1</span> 🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
+    <div id="vsBox"></div>
     <div id="charGrid"></div>
   </div>
   <div class="confirm" id="confirm" hidden>
@@ -85,7 +100,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-7';
+  const VERSION = '20261003-8';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -107,17 +122,27 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   readColors();
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColors); } catch (e) {}
 
-  // ---------- 저장 ----------
-  let save = { gold: 0, owned: [0], sel: 0, hi: 0, startStage: 0 };
+  // ---------- 저장 (플레이어 1·2는 골드·스킨·최고점이 각자 따로) ----------
+  const newPlayer = () => ({ gold: 0, owned: [0], sel: 0, hi: 0, plays: 0, last: 0 });
+  let store = { cur: 0, players: [newPlayer(), newPlayer()] };
   try {
-    const s = JSON.parse(localStorage.getItem('dino-save') || 'null');
-    if (s && typeof s === 'object') save = Object.assign(save, s);
-    if (s && s.hardStart && !s.startStage) save.startStage = 2;   // 예전 "시작부터 하드모드" → 우주 구간
-    const old = parseInt(localStorage.getItem('dino-hi') || '0', 10);
-    if (old > save.hi) save.hi = old;
+    const raw = JSON.parse(localStorage.getItem('dino-save2') || 'null');
+    if (raw && Array.isArray(raw.players) && raw.players.length >= 2) {
+      store.cur = raw.cur === 1 ? 1 : 0;
+      store.players = [0, 1].map(i => Object.assign(newPlayer(), raw.players[i]));
+    } else {   // 예전 단일 저장 → 플레이어 1로 이전
+      const o = JSON.parse(localStorage.getItem('dino-save') || 'null');
+      if (o && typeof o === 'object') Object.assign(store.players[0], { gold: o.gold, owned: o.owned, sel: o.sel, hi: o.hi });
+      const old = parseInt(localStorage.getItem('dino-hi') || '0', 10);
+      if (old > (+store.players[0].hi || 0)) store.players[0].hi = old;
+    }
   } catch (e) {}
-  if (!Array.isArray(save.owned) || !save.owned.includes(0)) save.owned = [0].concat(save.owned || []);
-  const persist = () => { try { localStorage.setItem('dino-save', JSON.stringify(save)); } catch (e) {} };
+  store.players.forEach(p => {
+    if (!Array.isArray(p.owned) || !p.owned.includes(0)) p.owned = [0].concat(p.owned || []);
+    p.gold = +p.gold || 0; p.hi = +p.hi || 0; p.plays = +p.plays || 0; p.last = +p.last || 0; p.sel = +p.sel || 0;
+  });
+  let save = store.players[store.cur];
+  const persist = () => { try { localStorage.setItem('dino-save2', JSON.stringify(store)); } catch (e) {} };
   const isOwned = i => save.owned.includes(i);
 
   // ---------- 색 도우미 ----------
@@ -190,7 +215,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     slow:   { name: '시간 정지',     icon: '⏳',  cd: 3000, desc: '5초간 시간이 느려짐' },
     fly:    { name: '오로라 비행',   icon: '🌈',  cd: 3300, desc: '5초간 무적 비행 + 골드 x2, 끝나면 방어력 +1' },
   };
-  if (!CHARS[save.sel] || !isOwned(save.sel)) save.sel = 0;
+  store.players.forEach(pl => { if (!CHARS[pl.sel] || !pl.owned.includes(pl.sel)) pl.sel = 0; });
 
   const BODY = [
     "............########",
@@ -569,7 +594,6 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     { id: 'hell',   at: 16000,  name: '지옥',   fg: '#ffd9c7', bg: '#1c0606', ac: '#ff5722' },
     { id: 'heaven', at: 32000, name: '천국',   fg: '#7a5a00', bg: '#fff6dc', ac: '#b8860b' },
   ];
-  const ST_ICON = ['🌵', '🏰', '🚀', '🔥', '😇'];
   const stageFG = i => STAGES[i].fg || TFG, stageBG = i => STAGES[i].bg || TBG;
   const stageOf = sc => { let k = 0; for (let i = 0; i < STAGES.length; i++) if (sc >= STAGES[i].at) k = i; return k; };
   // 점수 구간이 2배가 되었으므로 난이도 곡선도 점수/SCALE 기준으로 (예전 2000점 느낌 = 지금 4000점)
@@ -591,6 +615,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   let stIdx = 0, stPrev = 0, stT = 1, bannerT = 0;
   let items = [], magnetT = 0, x2T = 0, itemIn = 500, toast = { t: 0, s: '' };
   let lives = 1, maxLives = 1, inv = 0;
+  let lastRec = false;
   let hitStopT = 0, shakeT = 0, restartT = 0, hurtFx = 0;   // 피격 연출: 멈춤 / 화면 진동 / 재시작 가속 / 붉은 화면
   let skillT = 0, shieldT = 0, dashT = 0, fireT = 0, slowT = 0, flyT = 0, batFx = 0, healFx = 0, flashT = 0;
   const ITEM_T = 600;   // 아이템 지속 시간(프레임) ≈ 10초
@@ -601,7 +626,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function reset() {
     dino = { x: DX, y: GROUND - 40, vy: 0, onGround: true, ducking: false, jumps: 0, falling: false, fallV: 0 };
     obstacles = []; coins = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }, { x: 620, y: 50 }];
-    score = STAGES[save.startStage || 0].at;
+    score = 0;   // 항상 처음부터 시작 (후반 구간으로 바로 시작하는 기능 없음)
     speed = speedAt(score);
     frame = 0; gscroll = 0; spawnIn = 60; nextKind = null; runGold = 0; duckT = 0; over = false;
     const ns = stageOf(score);
@@ -623,7 +648,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     const land = vw / vh >= 1.45, oldG = GROUND;
     W = land ? 740 : 560; DX = land ? 140 : 70; SC = vw / W;
     H = Math.max(260, Math.round(vh / SC));
-    GROUND = land ? H - 32 : clamp(Math.round(H * 0.66), 228, H - 32);
+    GROUND = land ? H - 18 : clamp(Math.round(H * 0.72), 228, H - 18);   // 땅 위치: 화면 아래쪽으로
     CEIL_Y0 = GROUND - 170; CEIL_Y1 = GROUND - 140;
     cv.width = W; cv.height = H;
     if (cv.style) { cv.style.width = vw + 'px'; cv.style.height = vh + 'px'; }
@@ -633,7 +658,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       SAFE.b = (parseFloat(cs.paddingBottom) || 0) / SC; SAFE.l = (parseFloat(cs.paddingLeft) || 0) / SC;
     } catch (e) {}
     if (dino) dino.x = DX;
-    try { document.getElementById('skillBox').style.top = Math.round((SAFE.t + 22 + 58 + 14 * 4 + 8) * SC) + 'px'; } catch (e) {}   // HUD 바로 아래
+    try { document.getElementById('skillBox').style.top = Math.round((SAFE.t + 16 + 40 + 11 * 4 + 6) * SC) + 'px'; } catch (e) {}   // HUD 바로 아래
     if (dino && oldG !== GROUND) {   // 지면 위치가 바뀌면 진행 중인 오브젝트도 같이 이동
       const d = GROUND - oldG;
       dino.y += d; obstacles.forEach(o => o.y += d); coins.forEach(c => c.y += d); items.forEach(it => it.y += d);
@@ -729,13 +754,6 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       else { const p = reqFS.call(de); if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape'); } catch (e) {} }).catch(() => {}); }
     } catch (e) {}
   });
-  const hb = document.getElementById('hardBtn');
-  const syncStage = () => { hb.textContent = ST_ICON[save.startStage || 0]; hb.classList.toggle('on', (save.startStage || 0) > 0); };
-  hb.addEventListener('click', () => {
-    save.startStage = ((save.startStage || 0) + 1) % STAGES.length; persist(); syncStage();
-    if (!running) reset();   // 대기/게임 오버 상태면 바로 적용
-  });
-  syncStage();
 
   // ---------- 스킬 버튼 ----------
   const skillBtn = document.getElementById('skillBtn'), skillBox = document.getElementById('skillBox');
@@ -756,10 +774,33 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     skillBtn.classList.toggle('ready', ready);
   }
 
+  // ---------- 플레이어 1 / 2 ----------
+  const pBtn = document.getElementById('playerBtn');
+  const syncPlayerBtn = () => { pBtn.textContent = 'P' + (store.cur + 1); pBtn.className = 'ibtn p' + store.cur; };
+  function setPlayer(i) {
+    if (running && !shopOpen) { toast.s = '게임 중에는 플레이어를 바꿀 수 없어요'; toast.t = 80; return; }
+    store.cur = i; save = store.players[i]; persist();
+    skShown = -2; reset(); syncPlayerBtn();
+    if (shopOpen) renderShop();
+  }
+  pBtn.addEventListener('click', () => setPlayer(1 - store.cur));
+  syncPlayerBtn();
+
   // ---------- 상점 ----------
   const shop = document.getElementById('shop');
   const grid = document.getElementById('charGrid');
   const fmt = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  function vsInfo() {   // 플레이어 1·2 최고점 비교
+    const a = store.players[0], b = store.players[1], d = a.hi - b.hi, lead = d === 0 ? -1 : (d > 0 ? 0 : 1);
+    const msg = (a.hi === 0 && b.hi === 0) ? '아직 기록이 없어요' : lead < 0 ? '동점이에요!' : (lead === 0 ? 'P1이 ' : 'P2가 ') + fmt(Math.abs(d)) + '점 앞서요';
+    return { a, b, d, lead, msg };
+  }
+  function vsHTML() {
+    const v = vsInfo(), mx = Math.max(1, v.a.hi, v.b.hi);
+    const row = (p, i) => '<div class="vsrow' + (store.cur === i ? ' cur' : '') + '" data-p="' + i + '"><span class="pn p' + i + '">P' + (i + 1) + '</span><div class="tr"><i class="p' + i + '" style="width:' + Math.round(p.hi / mx * 100) + '%"></i></div><b>' + fmt(p.hi) + (v.lead === i ? ' 👑' : '') + '</b></div>' +
+      '<div class="vsmeta">플레이 ' + p.plays + '회 · 마지막 ' + fmt(Math.floor(p.last)) + (store.cur === i ? ' · 지금 플레이 중' : ' · 탭하면 이 플레이어로 전환') + '</div>';
+    return '<div class="vs"><div class="vsh">🏆 최고점 비교</div>' + row(v.a, 0) + row(v.b, 1) + '<div class="vsres">' + v.msg + '</div></div>';
+  }
   function cardHTML(c, i) {
     const R = RARITY[c.rar], owned = isOwned(i), sel = save.sel === i;
     let label, dis = false;
@@ -774,6 +815,8 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   function renderShop() {
     document.getElementById('goldTotal').textContent = fmt(save.gold);
+    document.getElementById('shopWho').textContent = 'P' + (store.cur + 1);
+    document.getElementById('vsBox').innerHTML = vsHTML();
     let html = '';
     RARITY.forEach((R, ri) => {
       const list = CHARS.map((c, i) => [c, i]).filter(p => p[0].rar === ri);
@@ -815,6 +858,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (!running && !over) { maxLives = livesOf(); lives = maxLives; }   // 바꾼 캐릭터의 방어력 반영
     tryReload();
   }
+  document.getElementById('vsBox').addEventListener('click', e => { const r = e.target.closest('.vsrow'); if (r) setPlayer(+r.dataset.p); });
   document.getElementById('shopBtn').addEventListener('click', openShop);
   document.getElementById('shopClose').addEventListener('click', closeShop);
   shop.addEventListener('click', e => { if (e.target === shop) closeShop(); });
@@ -901,7 +945,9 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     dino.falling = !!fall; dino.fallV = 2; dino.ducking = false;
     shakeT = fall ? 22 : 30; hurtFx = 30; vib(fall ? [220] : [160, 60, 160]);
     const s = Math.floor(score);
+    lastRec = s > save.hi && s > 0;
     if (s > save.hi) save.hi = s;
+    save.plays = (save.plays || 0) + 1; save.last = s;
     persist(); tryReload();
   }
   function hurt() {   // 장애물에 부딪힘: 방어력 -1. 남아 있으면 잠깐 멈췄다가(진동) 다시 출발, 0이면 게임 오버
@@ -1167,14 +1213,15 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     }
   }
   function hudBar(y, label, frac, col, x0) {
-    ctx.fillStyle = 'rgba(128,128,128,0.35)'; ctx.fillRect(x0, y, 80, 8);
-    ctx.fillStyle = col; ctx.fillRect(x0, y, 80 * clamp(frac, 0, 1), 8);
-    ctx.fillStyle = FG; ctx.font = 'bold 10px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(label, x0 + 86, y + 8);
+    ctx.fillStyle = 'rgba(128,128,128,0.35)'; ctx.fillRect(x0, y, 56, 5);
+    ctx.fillStyle = col; ctx.fillRect(x0, y, 56 * clamp(frac, 0, 1), 5);
+    ctx.fillStyle = FG; ctx.font = 'bold 9px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(label, x0 + 61, y + 6);
   }
-  function shieldIcon(c, x, y, col) {   // 방패 아이콘 (방어력)
-    x = Math.round(x); y = Math.round(y);
-    c.fillStyle = col; c.fillRect(x - 5, y - 6, 10, 7); c.fillRect(x - 4, y + 1, 8, 3); c.fillRect(x - 2, y + 4, 4, 2);
-    c.fillStyle = 'rgba(255,255,255,0.45)'; c.fillRect(x - 4, y - 5, 3, 5);
+  function shieldIcon(c, x, y, col, sc) {   // 방패 아이콘 (방어력)
+    sc = sc || 1; x = Math.round(x); y = Math.round(y);
+    const r = (dx, dy, w, h) => c.fillRect(x + Math.round(dx * sc), y + Math.round(dy * sc), Math.max(1, Math.round(w * sc)), Math.max(1, Math.round(h * sc)));
+    c.fillStyle = col; r(-5, -6, 10, 7); r(-4, 1, 8, 3); r(-2, 4, 4, 2);
+    c.fillStyle = 'rgba(255,255,255,0.45)'; r(-4, -5, 3, 5);
   }
   function drawCoin(c) {
     const cx = Math.round(c.x), cy = Math.round(c.y);
@@ -1307,9 +1354,9 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     // 땅
     ctx.fillStyle = FG; ctx.fillRect(0, GROUND, W, 2);
     if (stIdx === 0 || stIdx === 2) {
-      const rows = clamp(Math.floor((H - GROUND - 6) / 12), 3, 16);
-      for (let r = 0; r < rows; r++) for (let i = 0; i < 12; i++) {
-        ctx.fillRect(Math.round(wrap(i * 83 + r * 37 - gscroll * (1 - r * 0.03), W + 40) - 20), GROUND + 8 + r * 12, 3 + ((i + r) % 4) * 3, 2);
+      const rows = clamp(Math.floor((H - GROUND - 4) / 12), 1, 16);
+      for (let r = 0; r < rows; r++) for (let i = 0; i < 12; i++) {   // 모든 줄이 땅과 똑같은 속도로 흐름 (어지러움 방지)
+        ctx.fillRect(Math.round(wrap(i * 83 + r * 37 - gscroll, W + 40) - 20), GROUND + 8 + r * 12, 3 + ((i + r) % 4) * 3, 2);
       }
     }
     obstacles.forEach(o => { if (o.type === 'pit') drawPit(o); });
@@ -1371,55 +1418,60 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       ctx.strokeStyle = 'rgba(206,147,216,0.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pcx, pcy, 40 + (frame * 2) % 60, 0, Math.PI * 2); ctx.stroke();
     }
     if (flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.7, flashT / 14 * 0.7) + ')'; ctx.fillRect(0, 0, W, H); }
-    // HUD
-    const hx0 = 14 + SAFE.l, hy0 = 22 + SAFE.t, pad = n => String(n).padStart(5, '0');
-    ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.arc(hx0 + 6, hy0 - 6, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.arc(hx0 + 6, hy0 - 6, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = FG; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'left';
-    ctx.fillText(String(save.gold), hx0 + 20, hy0);
-    if (stIdx > 0) { ctx.fillStyle = STAGES[stIdx].ac; ctx.fillText(STAGES[stIdx].name, hx0 + 100, hy0); ctx.fillStyle = FG; }
+    // HUD (작게)
+    const hx0 = 10 + SAFE.l, hy0 = 16 + SAFE.t, pad = n => String(n).padStart(5, '0'), p1c = '#64b5f6', p2c = '#ff8a80';
+    ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.arc(hx0 + 5, hy0 - 4, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.arc(hx0 + 5, hy0 - 4, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = FG; ctx.font = 'bold 12px "Courier New", monospace'; ctx.textAlign = 'left';
+    ctx.fillText(String(save.gold), hx0 + 15, hy0);
+    ctx.fillStyle = store.cur ? p2c : p1c; ctx.fillText('P' + (store.cur + 1), hx0 + 62, hy0);
+    if (stIdx > 0) { ctx.fillStyle = STAGES[stIdx].ac; ctx.fillText(STAGES[stIdx].name, hx0 + 86, hy0); }
     for (let i = 0; i < maxLives; i++) {   // 방어력(방패)
       const justLost = i === lives && hurtFx > 0 && Math.floor(hurtFx / 4) % 2 === 0;
-      shieldIcon(ctx, hx0 + 6 + i * 14, hy0 + 22, i < lives ? '#4fc3f7' : (justLost ? '#ff1744' : 'rgba(128,128,128,0.35)'));
+      shieldIcon(ctx, hx0 + 5 + i * 11, hy0 + 14, i < lives ? '#4fc3f7' : (justLost ? '#ff1744' : 'rgba(128,128,128,0.35)'), 0.8);
     }
-    ctx.fillStyle = FG; ctx.font = 'bold 11px "Courier New", monospace'; ctx.fillText('방어력 ' + lives + '/' + maxLives, hx0 + 6 + maxLives * 14 + 4, hy0 + 26);
-    ctx.font = 'bold 13px "Courier New", monospace';
-    ctx.fillText(pad(Math.floor(score)), hx0, hy0 + 46);
-    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), hx0 + 56, hy0 + 46); ctx.globalAlpha = 1;
-    let by = hy0 + 58;
-    if (magnetT > 0) { hudBar(by, '자석', magnetT / ITEM_T, '#e53935', hx0 - 4); by += 14; }
-    if (x2T > 0) { hudBar(by, '골드 x2', x2T / ITEM_T, '#f5b301', hx0 - 4); by += 14; }
-    if (slowT > 0) { hudBar(by, '시간 정지', slowT / 300, '#ab47bc', hx0 - 4); by += 14; }
-    if (shieldT > 0 && shieldT < 900) { hudBar(by, '무적', shieldT / 240, '#4fc3f7', hx0 - 4); by += 14; }
+    ctx.fillStyle = FG; ctx.font = 'bold 10px "Courier New", monospace'; ctx.fillText('방어력 ' + lives + '/' + maxLives, hx0 + 5 + maxLives * 11 + 2, hy0 + 17);
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.fillText(pad(Math.floor(score)), hx0, hy0 + 31);
+    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), hx0 + 46, hy0 + 31); ctx.globalAlpha = 1;
+    let by = hy0 + 40;
+    if (magnetT > 0) { hudBar(by, '자석', magnetT / ITEM_T, '#e53935', hx0); by += 11; }
+    if (x2T > 0) { hudBar(by, '골드 x2', x2T / ITEM_T, '#f5b301', hx0); by += 11; }
+    if (slowT > 0) { hudBar(by, '시간 정지', slowT / 300, '#ab47bc', hx0); by += 11; }
+    if (shieldT > 0 && shieldT < 900) { hudBar(by, '무적', shieldT / 240, '#4fc3f7', hx0); by += 11; }
     ctx.textAlign = 'center';
     const cy0 = GROUND - 140;
     if (bannerT > 0 && stIdx > 0) {
       ctx.globalAlpha = Math.min(1, bannerT / 30);
-      ctx.fillStyle = STAGES[stIdx].ac; ctx.font = 'bold 28px "Courier New", monospace'; ctx.fillText(STAGES[stIdx].name + ' 구간', W / 2, cy0);
-      ctx.fillStyle = FG; ctx.font = '14px "Courier New", monospace'; ctx.fillText('STAGE ' + (stIdx + 1), W / 2, cy0 + 22);
+      ctx.fillStyle = STAGES[stIdx].ac; ctx.font = 'bold 22px "Courier New", monospace'; ctx.fillText(STAGES[stIdx].name + ' 구간', W / 2, cy0);
+      ctx.fillStyle = FG; ctx.font = '11px "Courier New", monospace'; ctx.fillText('STAGE ' + (stIdx + 1), W / 2, cy0 + 18);
       ctx.globalAlpha = 1; ctx.fillStyle = FG;
     }
-    if (toast.t > 0) { ctx.globalAlpha = Math.min(1, toast.t / 30); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 18px "Courier New", monospace'; ctx.fillText(toast.s, W / 2, hy0 + 30); ctx.globalAlpha = 1; ctx.fillStyle = FG; }
-    ctx.font = 'bold 16px "Courier New", monospace';
+    if (toast.t > 0) { ctx.globalAlpha = Math.min(1, toast.t / 30); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 14px "Courier New", monospace'; ctx.fillText(toast.s, W / 2, hy0 + 8); ctx.globalAlpha = 1; ctx.fillStyle = FG; }
+    ctx.font = 'bold 13px "Courier New", monospace';
     if (!running && !over) {
-      ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, GROUND - 78);
-      ctx.font = '12px "Courier New", monospace'; ctx.globalAlpha = 0.75;
-      ctx.fillText('탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기', W / 2, GROUND - 56);
-      if (skillOf()) ctx.fillText('왼쪽 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 38);
+      ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, GROUND - 72);
+      ctx.font = '10px "Courier New", monospace'; ctx.globalAlpha = 0.75;
+      ctx.fillText('탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기', W / 2, GROUND - 54);
+      if (skillOf()) ctx.fillText('왼쪽 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 40);
       ctx.globalAlpha = 1;
     }
-    if (over) {
-      ctx.font = 'bold 22px "Courier New", monospace';
-      ctx.fillText('G A M E   O V E R', W / 2, GROUND - 98);
-      ctx.font = '14px "Courier New", monospace';
-      ctx.fillText('획득 골드 +' + runGold, W / 2, GROUND - 72);
-      ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 50);
+    if (over) {   // 게임 오버 + 플레이어 1·2 최고점 비교
+      const v = vsInfo();
+      ctx.font = 'bold 18px "Courier New", monospace'; ctx.fillText('G A M E   O V E R', W / 2, GROUND - 120);
+      ctx.font = '12px "Courier New", monospace';
+      ctx.fillText('이번 점수 ' + fmt(Math.floor(score)) + (lastRec ? '  ★ 신기록!' : '') + '  ·  골드 +' + runGold, W / 2, GROUND - 100);
+      ctx.fillStyle = p1c; ctx.fillText('P1 최고 ' + fmt(v.a.hi), W / 2 - 72, GROUND - 80);
+      ctx.fillStyle = FG; ctx.fillText('vs', W / 2, GROUND - 80);
+      ctx.fillStyle = p2c; ctx.fillText('P2 최고 ' + fmt(v.b.hi), W / 2 + 72, GROUND - 80);
+      ctx.fillStyle = '#ffc107'; ctx.fillText(v.msg, W / 2, GROUND - 62);
+      ctx.fillStyle = FG; ctx.font = '11px "Courier New", monospace'; ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 42);
     }
     if (hurtFx > 0) {   // 피격: 붉은 화면 + 방어력 -1 표시
       ctx.fillStyle = 'rgba(255,40,40,' + Math.min(0.34, hurtFx / 38 * 0.34) + ')'; ctx.fillRect(-20, -20, W + 40, H + 40);
-      if (hitStopT > 0) { ctx.fillStyle = '#ff1744'; ctx.font = 'bold 22px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('-1', dino.x + 22, dino.y - 10 - (38 - hitStopT) * 0.35); }
+      if (hitStopT > 0) { ctx.fillStyle = '#ff1744'; ctx.font = 'bold 18px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('-1', dino.x + 22, dino.y - 10 - (38 - hitStopT) * 0.35); }
     }
-    if (restartT > 0 && hitStopT <= 0) { ctx.globalAlpha = clamp(restartT / 20, 0, 1); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 20px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('GO!', dino.x + 80, dino.y - 6); ctx.globalAlpha = 1; }
+    if (restartT > 0 && hitStopT <= 0) { ctx.globalAlpha = clamp(restartT / 20, 0, 1); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 16px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('GO!', dino.x + 80, dino.y - 6); ctx.globalAlpha = 1; }
     ctx.restore();
     FG = TFG; BG = TBG;
   }
