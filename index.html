@@ -32,16 +32,21 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
   background: var(--btn); color: var(--fg); border: 0; border-radius: 12px;
   font: inherit; font-size: 16px; touch-action: none;
 }
+.top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.top h1 { margin: 0; }
+#theme { background: var(--btn); color: var(--fg); border: 0; border-radius: 10px; width: 44px; height: 36px; font-size: 18px; touch-action: none; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>DINO RUN</h1>
+  <div class="top"><h1>DINO RUN</h1><button id="theme" aria-label="다크 모드 전환">🌙</button></div>
   <canvas id="c" width="700" height="200"></canvas>
-  <div class="hint">화면 탭 = 점프 · 아래로 스와이프 = 숙이기<br>키보드: Space/↑ 점프, ↓ 숙이기</div>
+  <div class="hint">화면 탭 = 점프 · 아래로 스와이프 = 숙이기 · 높은 새는 숙여서 피하기<br>키보드: Space/↑ 점프, ↓ 숙이기</div>
 </div>
 <script>
 (() => {
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('dino-theme'); if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t); } catch (e) {}
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height, GROUND = 168;
@@ -131,20 +136,36 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
     } else if (dy < 4 && duckHeld) { duckHeld = false; }
   }
   function pEnd() { touching = false; duckHeld = false; }
-  addEventListener('touchstart', e => { e.preventDefault(); pStart(e.touches[0].clientY); }, { passive: false });
+  const isUI = e => e.target.closest && e.target.closest('#theme');
+  addEventListener('touchstart', e => { if (isUI(e)) return; e.preventDefault(); pStart(e.touches[0].clientY); }, { passive: false });
   addEventListener('touchmove', e => { e.preventDefault(); pMove(e.touches[0].clientY); }, { passive: false });
   addEventListener('touchend', pEnd);
   addEventListener('touchcancel', pEnd);
-  addEventListener('mousedown', e => pStart(e.clientY));
+  addEventListener('mousedown', e => { if (isUI(e)) return; pStart(e.clientY); });
   addEventListener('mousemove', e => pMove(e.clientY));
   addEventListener('mouseup', pEnd);
   addEventListener('contextmenu', e => e.preventDefault());
+
+  // 다크 모드 토글
+  const tb = document.getElementById('theme');
+  const isDark = () => root.getAttribute('data-theme') === 'dark' ||
+    (!root.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+  const syncBtn = () => { tb.textContent = isDark() ? '☀️' : '🌙'; };
+  tb.addEventListener('pointerup', e => {
+    e.preventDefault(); e.stopPropagation();
+    const next = isDark() ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('dino-theme', next); } catch (err) {}
+    readColors(); syncBtn();
+  });
+  syncBtn();
 
   function spawn() {
     const roll = Math.random();
     if (score > 300 && roll < 0.28) {
       const ys = [GROUND - 60, GROUND - 38, GROUND - 22];
-      obstacles.push({ type: 'bird', x: W + 20, y: ys[Math.floor(Math.random() * 3)], w: 36, h: 24 });
+      const bi = Math.floor(Math.random() * 3);
+      obstacles.push({ type: 'bird', x: W + 20, y: ys[bi], w: 36, h: 24, high: bi === 0 });
     } else {
       const n = 1 + Math.floor(Math.random() * 3);
       const h = 30 + Math.floor(Math.random() * 20);
@@ -179,7 +200,7 @@ canvas { width: 100%; height: auto; display: block; image-rendering: pixelated; 
       ? { x: dino.x + 4, y: GROUND - 22, w: 50, h: 20 }
       : { x: dino.x + 8, y: dino.y + 4, w: 26, h: 34 };
     for (const o of obstacles) {
-      const ob = { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
+      const ob = o.high ? { x: o.x + 3, y: 0, w: o.w - 6, h: o.y + o.h - 3 } : { x: o.x + 3, y: o.y + 3, w: o.w - 6, h: o.h - 6 };
       if (hit(box, ob)) {
         over = true; running = false; overAt = performance.now();
         const s = Math.floor(score);
