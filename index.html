@@ -20,7 +20,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 .ibtn.p0 { background: rgba(30,136,229,.82); } .ibtn.p1 { background: rgba(229,57,53,.82); }
 .ibtn.on { outline: 2px solid #ff5252; }
 .ver { position: fixed; z-index: 2; right: 8px; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); font-size: 10px; color: #888; opacity: .5; pointer-events: none; }
-#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); top: 110px; width: 108px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
+#skillBox { position: fixed; z-index: 5; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 108px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; }
 #skillBtn { position: relative; pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 2px solid rgba(255,193,7,.55); padding: 0; cursor: pointer; color: #fff; touch-action: none;
   background: conic-gradient(#ffc107 var(--p, 100%), rgba(70,70,80,.7) 0); }
 #skillBtn::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: rgba(25,25,35,.86); }
@@ -100,7 +100,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-9';
+  const VERSION = '20261003-10';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -108,7 +108,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   const cv = document.getElementById('c');
   const ctx = cv.getContext('2d');
   // 화면 크기는 기기에 맞춰 바뀜 (전체 화면). 가로 화면은 폭 700, 세로 화면은 폭 520 기준
-  let W = 740, H = 260, GROUND = 228, SC = 1, DX = 140;   // DX: 공룡의 x 위치 (왼쪽은 HUD·스킬 영역)
+  let W = 860, H = 260, GROUND = 228, SC = 1, DX = 140, HS = 1;   // DX: 공룡의 x 위치 (왼쪽은 HUD·스킬 영역)
   let CEIL_Y0 = GROUND - 170, CEIL_Y1 = GROUND - 140;   // 천장 장애물: 1단 점프는 지나가고 2단 점프는 막힘
   const SAFE = { t: 0, r: 0, b: 0, l: 0 };               // 노치/홈바 안전 영역 (논리 픽셀)
 
@@ -129,6 +129,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     const raw = JSON.parse(localStorage.getItem('dino-save2') || 'null');
     if (raw && Array.isArray(raw.players) && raw.players.length >= 2) {
       store.cur = raw.cur === 1 ? 1 : 0;
+      store.rev = +raw.rev || 0;   // 개정 번호도 불러와야 1회성 작업이 매번 반복되지 않음
       store.players = [0, 1].map(i => Object.assign(newPlayer(), raw.players[i]));
     } else {   // 예전 단일 저장 → 플레이어 1로 이전
       const o = JSON.parse(localStorage.getItem('dino-save') || 'null');
@@ -141,6 +142,13 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (!Array.isArray(p.owned) || !p.owned.includes(0)) p.owned = [0].concat(p.owned || []);
     p.gold = +p.gold || 0; p.hi = +p.hi || 0; p.plays = +p.plays || 0; p.last = +p.last || 0; p.sel = +p.sel || 0;
   });
+  const REV = 2;   // 저장 데이터 개정 번호: 올리면 아래 1회성 작업이 한 번 더 실행됨
+  if ((store.rev || 0) < REV) {
+    store.players.forEach(p => { p.hi = 0; p.last = 0; p.plays = 0; });   // 현재 최고점 초기화 (골드·스킨은 그대로)
+    store.players[1].owned = Array.from(new Set(store.players[0].owned.concat(store.players[1].owned))).sort((a, b) => a - b);   // P2 스킨 = P1이 이미 산 것
+    store.rev = REV;
+    try { localStorage.setItem('dino-save2', JSON.stringify(store)); } catch (e) {}
+  }
   let save = store.players[store.cur];
   const persist = () => { try { localStorage.setItem('dino-save2', JSON.stringify(store)); } catch (e) {} };
   const isOwned = i => save.owned.includes(i);
@@ -623,6 +631,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   const livesOf = () => LIVES[(CHARS[save.sel] || CHARS[0]).rar];
   const skillOf = () => { const k = (CHARS[save.sel] || CHARS[0]).skill; return k ? SKILLS[k] : null; };
 
+  let booted = false;   // 초기화가 끝난 뒤에만 true (그 전에는 prefill 불가)
   function reset() {
     dino = { x: DX, y: GROUND - 40, vy: 0, onGround: true, ducking: false, jumps: 0, falling: false, fallV: 0 };
     obstacles = []; coins = []; clouds = [{ x: 200, y: 40 }, { x: 480, y: 70 }, { x: 620, y: 50 }];
@@ -637,6 +646,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     const sk0 = skillOf(); skillT = sk0 ? Math.round(sk0.cd * 0.4) : 0;
     shieldT = dashT = fireT = slowT = flyT = batFx = healFx = flashT = 0;
     hitStopT = shakeT = restartT = hurtFx = 0;
+    if (booted) prefill();   // 시작하자마자 화면에 장애물이 이미 깔려 있게
   }
   reset(); stPrev = stIdx; stT = 1;
 
@@ -646,19 +656,33 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function layout() {
     const vw = Math.max(320, window.innerWidth || 700), vh = Math.max(200, window.innerHeight || 260);
     const land = vw / vh >= 1.45, oldG = GROUND;
-    W = land ? 740 : 560; DX = land ? 140 : 70; SC = vw / W;
-    H = Math.max(260, Math.round(vh / SC));
+    W = land ? 860 : 650; DX = land ? 150 : 76; SC = Math.min(vw / W, 1.5);   // 큰 화면에서는 배율 상한(1.5배)   // 논리 폭을 넓혀 화면을 줄이고(줌 아웃) 장애물이 더 멀리서부터 보이게
+    HS = clamp(0.98 / SC, 1, 1.7);   // 축소 배율이 낮은 세로 화면에서는 HUD 글자를 키워 읽기 쉽게
+    H = Math.max(260, Math.min(land ? 480 : 1600, Math.floor(vh / SC)));
     GROUND = land ? H - 18 : clamp(Math.round(H * 0.72), 228, H - 18);   // 땅 위치: 화면 아래쪽으로
     CEIL_Y0 = GROUND - 170; CEIL_Y1 = GROUND - 140;
     cv.width = W; cv.height = H;
-    if (cv.style) { cv.style.width = vw + 'px'; cv.style.height = vh + 'px'; }
+    const cssW = Math.round(W * SC), cssH = Math.round(H * SC);
+    const left = Math.max(0, Math.floor((vw - cssW) / 2)), top = Math.max(0, Math.floor((vh - cssH) / 2));
+    if (cv.style) { cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; cv.style.left = left + 'px'; cv.style.top = top + 'px'; }
+    SAFE.t = SAFE.r = SAFE.b = SAFE.l = 0;
     try {
-      const cs = getComputedStyle(probe);
-      SAFE.t = (parseFloat(cs.paddingTop) || 0) / SC; SAFE.r = (parseFloat(cs.paddingRight) || 0) / SC;
-      SAFE.b = (parseFloat(cs.paddingBottom) || 0) / SC; SAFE.l = (parseFloat(cs.paddingLeft) || 0) / SC;
+      if (!left && !top) {   // 화면을 꽉 채울 때만 노치/홈바 안전 영역 적용
+        const cs = getComputedStyle(probe);
+        SAFE.t = (parseFloat(cs.paddingTop) || 0) / SC; SAFE.r = (parseFloat(cs.paddingRight) || 0) / SC;
+        SAFE.b = (parseFloat(cs.paddingBottom) || 0) / SC; SAFE.l = (parseFloat(cs.paddingLeft) || 0) / SC;
+      }
+    } catch (e) {}
+    try {   // 버튼은 오른쪽 위, 스킬은 왼쪽 아래 (게임 화면 모서리 기준)
+      const bar = document.getElementById('bar'), sb = document.getElementById('skillBox');
+      bar.style.top = 'calc(' + (top + 6) + 'px + env(safe-area-inset-top, 0px))';
+      bar.style.right = 'calc(' + (Math.max(0, vw - left - cssW) + 6) + 'px + env(safe-area-inset-right, 0px))';
+      sb.style.left = 'calc(' + (left + 10) + 'px + env(safe-area-inset-left, 0px))';
+      sb.style.bottom = 'calc(' + (Math.max(0, vh - top - cssH) + 10) + 'px + env(safe-area-inset-bottom, 0px))';
+      sb.style.top = 'auto';
     } catch (e) {}
     if (dino) dino.x = DX;
-    try { document.getElementById('skillBox').style.top = Math.round((SAFE.t + 16 + 40 + 11 * 4 + 6) * SC) + 'px'; } catch (e) {}   // HUD 바로 아래
+    if (booted && !running && !over && frame === 0) { obstacles = []; coins = []; items = []; prefill(); }   // 화면 크기가 바뀌면 코스도 다시 깔아둠
     if (dino && oldG !== GROUND) {   // 지면 위치가 바뀌면 진행 중인 오브젝트도 같이 이동
       const d = GROUND - oldG;
       dino.y += d; obstacles.forEach(o => o.y += d); coins.forEach(c => c.y += d); items.forEach(it => it.y += d);
@@ -679,7 +703,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (id === 'shield') shieldT = Math.max(shieldT, 240);
     else if (id === 'coin') { magnetT = 480; x2T = 480; shieldT = Math.max(shieldT, 30); }
     else if (id === 'dash') { dashT = 110; shieldT = Math.max(shieldT, 130); }
-    else if (id === 'bats') { batFx = 60; flashT = 14; shieldT = Math.max(shieldT, 30); obstacles = obstacles.filter(o => { if (o.x < W + 40) { burst(o); return false; } return true; }); }
+    else if (id === 'bats') { batFx = 60; flashT = 14; shieldT = Math.max(shieldT, 30); obstacles = obstacles.filter(o => { if (o.x < W + 40) { burst(o); return false; } return true; }); spawnIn = Math.min(spawnIn, 20); }
     else if (id === 'heal') { if (lives < maxLives) lives++; else { save.gold += 20; runGold += 20; persist(); toast.s = '방어력 최대 · 골드 +20'; } healFx = 50; shieldT = Math.max(shieldT, 60); }
     else if (id === 'fire') { fireT = 90; shieldT = Math.max(shieldT, 110); }
     else if (id === 'slow') { slowT = 300; shieldT = Math.max(shieldT, 60); }
@@ -892,8 +916,24 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     for (const a of list) { r -= a[1]; if (r <= 0) return a[0]; }
     return list[0][0];
   }
-  function makeObstacle(kind) {
-    const x = W + 30;
+  function gapFrames(kind, o, next) {   // 앞 장애물을 처리할 시간을 확보. 빨라질수록(후반) 간격은 더 좁아짐
+    let gap = GAP[kind] + (kind === 'pit' ? o.w / speed : 0) + (next === 'cactusT' ? 10 : 0) + 8 + Math.random() * 28;
+    return gap * clamp(1.1 - 0.15 * progressOf(speed) - 0.2 * clamp((score / SCALE - 2125) / 14000, 0, 1), 0.8, 1.1);
+  }
+  function prefill() {   // 화면 오른쪽 끝까지 장애물·코인을 미리 깔아둠 (게임 시작 때 트랙이 비어 있다가 늦게 나오는 문제 방지)
+    obstacles = []; coins = [];
+    let x = Math.min(W - 120, dino.x + 440), kind = pickKind(null);
+    while (x < W + 30) {
+      const o = makeObstacle(kind, x); o.st = stIdx;
+      obstacles.push(o); spawnCoins(o);
+      const next = pickKind(kind);
+      x += gapFrames(kind, o, next) * speed;
+      kind = next;
+    }
+    nextKind = kind; spawnIn = Math.max(1, (x - (W + 30)) / speed);   // 다음 장애물이 화면 밖 오른쪽 끝에 닿을 때 이어서 생성
+  }
+  function makeObstacle(kind, xPos) {
+    const x = xPos === undefined ? W + 30 : xPos;
     if (kind === 'cactus' || kind === 'cactusT') {
       const n = kind === 'cactusT' ? rnd(1, 2) : rnd(1, 3), w = 14 * n + 4 * (n - 1);
       const sa = arrivalSpeed(x + w / 2), tol = tolAt(sa, score);
@@ -1006,8 +1046,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       obstacles.push(o); spawnCoins(o);
       nextKind = pickKind(kind);
       // 앞 장애물을 처리할 시간을 확보. 빨라질수록(후반) 간격은 더 좁아짐
-      let gap = GAP[kind] + (kind === 'pit' ? o.w / speed : 0) + (nextKind === 'cactusT' ? 10 : 0) + 8 + Math.random() * 28;
-      gap *= clamp(1.1 - 0.15 * progressOf(speed) - 0.2 * clamp((score / SCALE - 2125) / 14000, 0, 1), 0.8, 1.1);
+      const gap = gapFrames(kind, o, nextKind);
       spawnIn = gap;
       let placed = false;
       if (itemIn <= 0 && gap >= 70) {   // 장애물 사이 빈 구간 한가운데에 아이템
@@ -1407,9 +1446,12 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       ctx.strokeStyle = 'rgba(206,147,216,0.55)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(pcx, pcy, 40 + (frame * 2) % 60, 0, Math.PI * 2); ctx.stroke();
     }
     if (flashT > 0) { ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.7, flashT / 14 * 0.7) + ')'; ctx.fillRect(0, 0, W, H); }
-    // HUD (작게)
+    // HUD (작게). 축소 배율이 낮은 세로 화면에서는 HS만큼 키워서 읽기 쉽게
+    const F = (px, b) => (b ? 'bold ' : '') + Math.round(px * HS) + 'px "Courier New", monospace';
+    const p1c = '#64b5f6', p2c = '#ff8a80', pad = n => String(n).padStart(5, '0');
     ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 2;
-    const hx0 = 10 + SAFE.l, hy0 = 16 + SAFE.t, pad = n => String(n).padStart(5, '0'), p1c = '#64b5f6', p2c = '#ff8a80';
+    ctx.save(); ctx.scale(HS, HS);
+    const hx0 = (10 + SAFE.l) / HS, hy0 = (16 + SAFE.t) / HS;
     ctx.fillStyle = '#f5b301'; ctx.beginPath(); ctx.arc(hx0 + 5, hy0 - 4, 6, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#ffe082'; ctx.beginPath(); ctx.arc(hx0 + 5, hy0 - 4, 3, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = FG; ctx.font = 'bold 12px "Courier New", monospace'; ctx.textAlign = 'left';
@@ -1421,41 +1463,43 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       shieldIcon(ctx, hx0 + 5 + i * 11, hy0 + 14, i < lives ? '#4fc3f7' : (justLost ? '#ff1744' : 'rgba(128,128,128,0.35)'), 0.8);
     }
     ctx.fillStyle = FG; ctx.font = 'bold 10px "Courier New", monospace'; ctx.fillText('방어력 ' + lives + '/' + maxLives, hx0 + 5 + maxLives * 11 + 2, hy0 + 17);
-    ctx.font = 'bold 11px "Courier New", monospace';
-    ctx.fillText(pad(Math.floor(score)), hx0, hy0 + 31);
-    ctx.globalAlpha = 0.55; ctx.fillText('HI ' + pad(save.hi), hx0 + 46, hy0 + 31); ctx.globalAlpha = 1;
-    let by = hy0 + 40;
+    let by = hy0 + 26;
     if (magnetT > 0) { hudBar(by, '자석', magnetT / ITEM_T, '#e53935', hx0); by += 11; }
     if (x2T > 0) { hudBar(by, '골드 x2', x2T / ITEM_T, '#f5b301', hx0); by += 11; }
     if (slowT > 0) { hudBar(by, '시간 정지', slowT / 300, '#ab47bc', hx0); by += 11; }
     if (shieldT > 0 && shieldT < 900) { hudBar(by, '무적', shieldT / 240, '#4fc3f7', hx0); by += 11; }
+    ctx.restore();
+    // 점수: 오른쪽 위 (버튼 바로 아래)
+    ctx.textAlign = 'right'; ctx.fillStyle = FG; ctx.font = F(15, true);
+    ctx.fillText(pad(Math.floor(score)), W - (10 + SAFE.r), SAFE.t + 52 * HS);
+    ctx.font = F(10, true); ctx.globalAlpha = 0.6; ctx.fillText('HI ' + pad(save.hi), W - (10 + SAFE.r), SAFE.t + 65 * HS); ctx.globalAlpha = 1;
     ctx.textAlign = 'center';
-    const cy0 = GROUND - 140;
+    const cy0 = GROUND - 140, ty0 = 16 + SAFE.t;
     if (bannerT > 0 && stIdx > 0) {
       ctx.globalAlpha = Math.min(1, bannerT / 30);
-      ctx.fillStyle = STAGES[stIdx].ac; ctx.font = 'bold 22px "Courier New", monospace'; ctx.fillText(STAGES[stIdx].name + ' 구간', W / 2, cy0);
-      ctx.fillStyle = FG; ctx.font = '11px "Courier New", monospace'; ctx.fillText('STAGE ' + (stIdx + 1), W / 2, cy0 + 18);
+      ctx.fillStyle = STAGES[stIdx].ac; ctx.font = F(22, true); ctx.fillText(STAGES[stIdx].name + ' 구간', W / 2, cy0);
+      ctx.fillStyle = FG; ctx.font = F(11); ctx.fillText('STAGE ' + (stIdx + 1), W / 2, cy0 + 18 * HS);
       ctx.globalAlpha = 1; ctx.fillStyle = FG;
     }
-    if (toast.t > 0) { ctx.globalAlpha = Math.min(1, toast.t / 30); ctx.fillStyle = '#ffc107'; ctx.font = 'bold 14px "Courier New", monospace'; ctx.fillText(toast.s, W / 2, hy0 + 8); ctx.globalAlpha = 1; ctx.fillStyle = FG; }
-    ctx.font = 'bold 13px "Courier New", monospace';
+    if (toast.t > 0) { ctx.globalAlpha = Math.min(1, toast.t / 30); ctx.fillStyle = '#ffc107'; ctx.font = F(14, true); ctx.fillText(toast.s, W / 2, ty0 + 8 * HS); ctx.globalAlpha = 1; ctx.fillStyle = FG; }
+    ctx.font = F(13, true);
     if (!running && !over) {
-      ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, GROUND - 72);
-      ctx.font = '10px "Courier New", monospace'; ctx.globalAlpha = 0.75;
-      ctx.fillText('탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기', W / 2, GROUND - 54);
-      if (skillOf()) ctx.fillText('왼쪽 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 40);
+      ctx.fillText('탭 또는 SPACE로 ' + (frame > 0 ? '계속' : '시작'), W / 2, GROUND - 72 * HS);
+      ctx.font = F(10); ctx.globalAlpha = 0.75;
+      ctx.fillText('탭 = 점프 (공중에서 한 번 더 = 2단 점프) · 아래로 스와이프 = 숙이기', W / 2, GROUND - 54 * HS);
+      if (skillOf()) ctx.fillText('왼쪽 아래 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 40 * HS);
       ctx.globalAlpha = 1;
     }
     if (over) {   // 게임 오버 + 플레이어 1·2 최고점 비교
-      const v = vsInfo();
-      ctx.font = 'bold 18px "Courier New", monospace'; ctx.fillText('G A M E   O V E R', W / 2, GROUND - 120);
-      ctx.font = '12px "Courier New", monospace';
-      ctx.fillText('이번 점수 ' + fmt(Math.floor(score)) + (lastRec ? '  ★ 신기록!' : '') + '  ·  골드 +' + runGold, W / 2, GROUND - 100);
-      ctx.fillStyle = p1c; ctx.fillText('P1 최고 ' + fmt(v.a.hi), W / 2 - 72, GROUND - 80);
-      ctx.fillStyle = FG; ctx.fillText('vs', W / 2, GROUND - 80);
-      ctx.fillStyle = p2c; ctx.fillText('P2 최고 ' + fmt(v.b.hi), W / 2 + 72, GROUND - 80);
-      ctx.fillStyle = '#ffc107'; ctx.fillText(v.msg, W / 2, GROUND - 62);
-      ctx.fillStyle = FG; ctx.font = '11px "Courier New", monospace'; ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 42);
+      const v = vsInfo(), hh = HS;
+      ctx.font = F(18, true); ctx.fillText('G A M E   O V E R', W / 2, GROUND - 120 * hh);
+      ctx.font = F(12);
+      ctx.fillText('이번 점수 ' + fmt(Math.floor(score)) + (lastRec ? '  ★ 신기록!' : '') + '  ·  골드 +' + runGold, W / 2, GROUND - 100 * hh);
+      ctx.fillStyle = p1c; ctx.fillText('P1 최고 ' + fmt(v.a.hi), W / 2 - 72 * hh, GROUND - 80 * hh);
+      ctx.fillStyle = FG; ctx.fillText('vs', W / 2, GROUND - 80 * hh);
+      ctx.fillStyle = p2c; ctx.fillText('P2 최고 ' + fmt(v.b.hi), W / 2 + 72 * hh, GROUND - 80 * hh);
+      ctx.fillStyle = '#ffc107'; ctx.fillText(v.msg, W / 2, GROUND - 62 * hh);
+      ctx.fillStyle = FG; ctx.font = F(11); ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 42 * hh);
     }
     ctx.shadowBlur = 0;
     if (hurtFx > 0) {   // 피격: 붉은 화면 + 방어력 -1 표시
@@ -1483,6 +1527,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     if (shopOpen) drawPreviews(ts / 16.667);
     requestAnimationFrame(loop);
   }
+  booted = true; prefill();
   requestAnimationFrame(loop);
 
   // ---------- 새 버전 자동 새로고침 ----------
