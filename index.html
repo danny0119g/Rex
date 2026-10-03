@@ -36,9 +36,8 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(12px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
 .panel { background: var(--bg); color: var(--fg); border-radius: 16px; width: 100%; max-width: 460px; max-height: 100%;
   overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; padding: 14px; box-sizing: border-box; }
-.shop-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 16px; }
+.shop-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 16px; }
 .shop-top button { background: var(--btn); color: var(--fg); border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 14px; }
-.demo { font-size: 11px; color: #e0a800; margin-bottom: 10px; }
 #charGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .card { border: 2px solid var(--btn); border-radius: 12px; padding: 8px 6px; text-align: center; }
 .card.sel { border-color: #f5b301; }
@@ -68,17 +67,14 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
 <div id="shop" hidden>
   <div class="panel">
     <div class="shop-top"><b>🪙 <span id="goldTotal">0</span></b><button id="shopClose">닫기</button></div>
-    <div class="demo" id="demoNote"></div>
     <div id="charGrid"></div>
   </div>
 </div>
 
 <script>
 (() => {
-  const VERSION = '20261003-2';
-  const DEMO = true;   // 데모 버전: 모든 캐릭터 무료 사용 (false로 바꾸면 골드로 구매)
-  document.getElementById('ver').textContent = 'v' + VERSION + (DEMO ? ' · DEMO' : '');
-  document.getElementById('demoNote').textContent = DEMO ? 'DEMO — 모든 캐릭터를 무료로 써볼 수 있어요' : '';
+  const VERSION = '20261003-3';
+  document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
   try { const t = localStorage.getItem('dino-theme'); if (t === 'dark' || t === 'light') root.setAttribute('data-theme', t); } catch (e) {}
@@ -105,7 +101,7 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   } catch (e) {}
   if (!Array.isArray(save.owned) || !save.owned.includes(0)) save.owned = [0].concat(save.owned || []);
   const persist = () => { try { localStorage.setItem('dino-save', JSON.stringify(save)); } catch (e) {} };
-  const isOwned = i => DEMO || save.owned.includes(i);
+  const isOwned = i => save.owned.includes(i);
 
   // ---------- 색 도우미 ----------
   const hex2rgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -353,7 +349,7 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
       if (sel) { label = '사용 중'; dis = true; }
       else if (owned) label = '선택';
       else { label = '🪙 ' + c.cost; dis = save.gold < c.cost; }
-      const pr = c.cost ? ('🪙 ' + c.cost + (DEMO ? ' · 데모 무료' : '')) : '무료';
+      const pr = c.cost ? ('🪙 ' + c.cost) : '무료';
       return '<div class="card' + (sel ? ' sel' : '') + '"><canvas width="80" height="72" data-i="' + i + '"></canvas>' +
         '<div class="nm">' + c.name + '</div><div class="pr">' + pr + '</div>' +
         '<button data-i="' + i + '"' + (dis ? ' disabled' : '') + '>' + label + '</button></div>';
@@ -376,7 +372,7 @@ canvas#c { width: 100%; height: auto; display: block; image-rendering: pixelated
   grid.addEventListener('click', e => {
     const b = e.target.closest('button[data-i]'); if (!b || b.disabled) return;
     const i = +b.dataset.i;
-    if (!isOwned(i)) {   // 정식 버전: 골드로 구매
+    if (!isOwned(i)) {   // 골드로 구매
       if (save.gold < CHARS[i].cost) return;
       save.gold -= CHARS[i].cost; save.owned.push(i);
     }
