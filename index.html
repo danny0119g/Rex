@@ -100,7 +100,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
 
 <script>
 (() => {
-  const VERSION = '20261003-11';
+  const VERSION = '20261003-12';
   document.getElementById('ver').textContent = 'v' + VERSION;
 
   const root = document.documentElement;
@@ -615,8 +615,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   };
 
   // ---------- 게임 상태 ----------
+  const LEAD = 420;   // 장애물은 화면 오른쪽 밖 이만큼 더 멀리에서 미리 생성됨 (경고 표시·미리 로드용)
   const GAP = { cactus: 46, spike: 46, cactusT: 95, birdM: 55, birdH: 50, pit: 60 };
   const DUCK_T = 48;   // 스와이프 한 번으로 숙이는 시간(프레임) ≈ 0.8초
+  const OVER_LOCK = 1100;   // 게임 오버 화면 잠금 시간(ms)
   const INV_T = 110;   // 맞은 뒤 무적 시간
   let gscroll = 0, dtS = 16.667, dino, obstacles, coins, clouds, speed, score, frame, spawnIn, nextKind, runGold;
   let last = 0, running = false, over = false, duckT = 0, overAt = 0, shopOpen = false, pendingReload = null, previews = [];
@@ -654,9 +656,11 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   let probe = null;
   try { probe = document.createElement('div'); probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)'; document.body.appendChild(probe); } catch (e) { probe = null; }
   function layout() {
-    const vw = Math.max(320, window.innerWidth || 700), vh = Math.max(200, window.innerHeight || 260);
+    const vw = Math.max(320, window.innerWidth || 700, (document.documentElement && document.documentElement.clientWidth) || 0), vh = Math.max(200, window.innerHeight || 260);
     const land = vw / vh >= 1.45, oldG = GROUND;
-    W = land ? 860 : 650; DX = land ? 150 : 76; SC = Math.min(vw / W, 1.5);   // 큰 화면에서는 배율 상한(1.5배)   // 논리 폭을 넓혀 화면을 줄이고(줌 아웃) 장애물이 더 멀리서부터 보이게
+    W = land ? 860 : 650; DX = land ? 150 : 76;   // 논리 폭을 넓혀 화면을 줄임(줌 아웃)
+    W = Math.max(W, Math.min(1400, Math.ceil(vw / 1.5)));   // 배율이 1.5배를 넘지 않게 하면서도 화면 오른쪽 끝까지 꽉 채움
+    SC = Math.min(vw / W, 1.5);
     HS = clamp(0.98 / SC, 1, 1.7);   // 축소 배율이 낮은 세로 화면에서는 HUD 글자를 키워 읽기 쉽게
     H = Math.max(260, Math.min(land ? 480 : 1600, Math.floor(vh / SC)));
     GROUND = land ? H - 18 : clamp(Math.round(H * 0.72), 228, H - 18);   // 땅 위치: 화면 아래쪽으로
@@ -711,7 +715,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   }
   function jump() {
     if (shopOpen || hitStopT > 0) return;
-    if (over) { if (performance.now() - overAt > 300) { reset(); running = true; } return; }
+    if (over) { if (performance.now() - overAt > OVER_LOCK) { reset(); running = true; } return; }   // 죽은 직후에는 연타해도 게임 오버 화면이 유지됨
     if (!running) running = true;
     if (flyT > 0) return;   // 비행 중에는 점프 입력 무시
     duckT = 0;
@@ -923,14 +927,14 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
   function prefill() {   // 화면 오른쪽 끝까지 장애물·코인을 미리 깔아둠 (게임 시작 때 트랙이 비어 있다가 늦게 나오는 문제 방지)
     obstacles = []; coins = [];
     let x = Math.min(W - 120, dino.x + 440), kind = pickKind(null);
-    while (x < W + 30) {
+    while (x < W + 30 + LEAD) {
       const o = makeObstacle(kind, x); o.st = stIdx;
       obstacles.push(o); spawnCoins(o);
       const next = pickKind(kind);
       x += gapFrames(kind, o, next) * speed;
       kind = next;
     }
-    nextKind = kind; spawnIn = Math.max(1, (x - (W + 30)) / speed);   // 다음 장애물이 화면 밖 오른쪽 끝에 닿을 때 이어서 생성
+    nextKind = kind; spawnIn = Math.max(1, (x - (W + 30 + LEAD)) / speed);   // 다음 장애물이 화면 밖 오른쪽 끝에 닿을 때 이어서 생성
   }
   function makeObstacle(kind, xPos) {
     const x = xPos === undefined ? W + 30 : xPos;
@@ -1041,7 +1045,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     spawnIn -= k * dm * rm;
     if (spawnIn <= 0) {
       const kind = nextKind || pickKind(null);
-      const o = makeObstacle(kind);
+      const o = makeObstacle(kind, W + 30 + LEAD);
       o.st = stIdx;   // 생성될 때의 구간 테마로 그려짐
       obstacles.push(o); spawnCoins(o);
       nextKind = pickKind(kind);
@@ -1050,10 +1054,10 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       spawnIn = gap;
       let placed = false;
       if (itemIn <= 0 && gap >= 70) {   // 장애물 사이 빈 구간 한가운데에 아이템
-        items.push({ type: Math.random() < 0.5 ? 'magnet' : 'x2', x: W + 30 + gap * speed * 0.5, y: GROUND - 26, ph: Math.random() * 40 });
+        items.push({ type: Math.random() < 0.5 ? 'magnet' : 'x2', x: W + 30 + LEAD + gap * speed * 0.5, y: GROUND - 26, ph: Math.random() * 40 });
         itemIn = rnd(900, 1500); placed = true;
       }
-      if (!placed && gap > 100) { const cx = W + 30 + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
+      if (!placed && gap > 100) { const cx = W + 30 + LEAD + gap * speed * 0.55; for (let i = 0; i < 3; i++) addCoin(cx + i * 28, GROUND - 20); }
     }
     obstacles.forEach(o => o.x -= sp * k);
     coins.forEach(c => c.x -= sp * k);
@@ -1256,6 +1260,7 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
     ctx.fillStyle = col; ctx.fillRect(x0, y, 56 * clamp(frac, 0, 1), 5);
     ctx.fillStyle = FG; ctx.font = 'bold 9px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(label, x0 + 61, y + 6);
   }
+  function rrect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
   function shieldIcon(c, x, y, col, sc) {   // 방패 아이콘 (방어력)
     sc = sc || 1; x = Math.round(x); y = Math.round(y);
     const r = (dx, dy, w, h) => c.fillRect(x + Math.round(dx * sc), y + Math.round(dy * sc), Math.max(1, Math.round(w * sc)), Math.max(1, Math.round(h * sc)));
@@ -1396,6 +1401,18 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       if (o.type === 'bird') drawFlyer(r); else if (o.type === 'spike') drawSpikes(r); else drawPillar(r);
     });
     obstacles.forEach(o => { const cr = ceilRect(o); if (cr) drawCeil({ x: cr.x, w: cr.w }, o.st); });
+    for (const o of obstacles) {   // 높은 선인장(2단 점프) 경고: 아직 화면 밖일 때 오른쪽 끝에 미리 표시
+      if (o.kind !== 'cactusT' || o.x < W - o.w - 6) continue;
+      const near = clamp(1 - (o.x - W) / (LEAD + 60), 0, 1), pulse = 0.55 + 0.45 * Math.sin(frame * (0.2 + near * 0.35));
+      const ax = W - 24 - SAFE.r, ay = GROUND - 80;
+      ctx.globalAlpha = pulse; ctx.fillStyle = '#ff1744';
+      ctx.beginPath(); ctx.moveTo(ax - 13, ay + 12); ctx.lineTo(ax + 13, ay + 12); ctx.lineTo(ax, ay - 14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillRect(ax - 1, ay - 6, 3, 10); ctx.fillRect(ax - 1, ay + 7, 3, 3);
+      ctx.textAlign = 'right'; ctx.font = 'bold 11px "Courier New", monospace'; ctx.fillStyle = '#ff5252';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 2; ctx.fillText('높은 선인장', ax + 15, ay + 27); ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      break;
+    }
     if (magnetT > 0) {
       ctx.strokeStyle = 'rgba(255,82,82,0.22)'; ctx.lineWidth = 2; ctx.setLineDash([5, 8]); ctx.lineDashOffset = -frame * 0.6;
       ctx.beginPath(); ctx.arc(dino.x + 21, dino.ducking ? GROUND - 12 : dino.y + 21, 170, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -1490,16 +1507,25 @@ canvas#c { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; displa
       if (skillOf()) ctx.fillText('왼쪽 아래 스킬 버튼 또는 S키 = ' + skillOf().name, W / 2, GROUND - 40 * HS);
       ctx.globalAlpha = 1;
     }
-    if (over) {   // 게임 오버 + 플레이어 1·2 최고점 비교
-      const v = vsInfo(), hh = HS;
-      ctx.font = F(18, true); ctx.fillText('G A M E   O V E R', W / 2, GROUND - 120 * hh);
-      ctx.font = F(12);
-      ctx.fillText('이번 점수 ' + fmt(Math.floor(score)) + (lastRec ? '  ★ 신기록!' : '') + '  ·  골드 +' + runGold, W / 2, GROUND - 100 * hh);
-      ctx.fillStyle = p1c; ctx.fillText('P1 최고 ' + fmt(v.a.hi), W / 2 - 72 * hh, GROUND - 80 * hh);
-      ctx.fillStyle = FG; ctx.fillText('vs', W / 2, GROUND - 80 * hh);
-      ctx.fillStyle = p2c; ctx.fillText('P2 최고 ' + fmt(v.b.hi), W / 2 + 72 * hh, GROUND - 80 * hh);
-      ctx.fillStyle = '#ffc107'; ctx.fillText(v.msg, W / 2, GROUND - 62 * hh);
-      ctx.fillStyle = FG; ctx.font = F(11); ctx.fillText('탭 또는 SPACE로 다시 시작', W / 2, GROUND - 42 * hh);
+    if (over) {   // 게임 오버: 화면을 어둡게 하고 패널로 확실히 보여줌 + 플레이어 1·2 최고점 비교
+      const v = vsInfo(), hh = HS, cx = W / 2, pw = Math.min(W - 24, 340 * hh), ph2 = 138 * hh, py = Math.max(SAFE.t + 70, GROUND - 205 * hh);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0,0,0,0.38)'; ctx.fillRect(-20, -20, W + 40, H + 40);
+      ctx.fillStyle = 'rgba(12,14,26,0.86)'; rrect(cx - pw / 2, py, pw, ph2, 14 * hh); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,82,82,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff5252'; ctx.font = F(26, true); ctx.fillText('GAME OVER', cx, py + 34 * hh);
+      ctx.fillStyle = '#ffffff'; ctx.font = F(15, true); ctx.fillText('점수 ' + fmt(Math.floor(score)), cx, py + 58 * hh);
+      if (lastRec) { ctx.fillStyle = '#ffd54f'; ctx.font = F(11, true); ctx.fillText('★ 신기록!', cx + 88 * hh, py + 58 * hh); }
+      ctx.font = F(11); ctx.fillStyle = '#ffffff'; ctx.fillText('골드 +' + runGold, cx - 92 * hh, py + 58 * hh);
+      ctx.fillStyle = p1c; ctx.fillText('P1 최고 ' + fmt(v.a.hi), cx - 78 * hh, py + 80 * hh);
+      ctx.fillStyle = '#ffffff'; ctx.fillText('vs', cx, py + 80 * hh);
+      ctx.fillStyle = p2c; ctx.fillText('P2 최고 ' + fmt(v.b.hi), cx + 78 * hh, py + 80 * hh);
+      ctx.fillStyle = '#ffc107'; ctx.fillText(v.msg, cx, py + 98 * hh);
+      const ready = performance.now() - overAt > OVER_LOCK;
+      ctx.globalAlpha = ready ? 0.6 + 0.4 * Math.sin(performance.now() / 220) : 0.35;
+      ctx.fillStyle = '#ffffff'; ctx.font = F(12, true); ctx.fillText('탭 또는 SPACE로 다시 시작', cx, py + 123 * hh);
+      ctx.globalAlpha = 1;
     }
     ctx.shadowBlur = 0;
     if (hurtFx > 0) {   // 피격: 붉은 화면 + 방어력 -1 표시
